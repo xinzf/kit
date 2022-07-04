@@ -1,0 +1,266 @@
+package kmap
+//
+//import (
+//	"context"
+//	"database/sql/driver"
+//	"errors"
+//	"fmt"
+//	"github.com/emirpasic/gods/maps/hashmap"
+//	"github.com/xinzf/kit/container"
+//	"gorm.io/driver/mysql"
+//	"gorm.io/gorm"
+//	"gorm.io/gorm/clause"
+//	"gorm.io/gorm/schema"
+//	"strings"
+//)
+//
+//type Map[K any, V any] struct {
+//	mp *hashmap.Map
+//}
+//
+//func New() *Map {
+//	return &Map{hashmap.New()}
+//}
+//
+//func (this *Map) Set(key K, value V) {
+//	this.mp.Put(key, value)
+//}
+//
+//func (this *Map) Get(key interface{}) (value *container.Element, found bool) {
+//	val, found := this.mp.Get(key)
+//	if !found {
+//		return nil, false
+//	}
+//	return container.NewElement(val), true
+//}
+//
+//func (this *Map) GetOrSet(key, value interface{}) *container.Element {
+//	if ele, found := this.Get(key); found {
+//		return ele
+//	}
+//	this.Set(key, value)
+//	return container.NewElement(value)
+//}
+//
+//func (this *Map) GetOrSetFunc(key interface{}, fn func() interface{}) *container.Element {
+//	if ele, found := this.Get(key); found {
+//		return ele
+//	}
+//	value := fn()
+//	this.Set(key, value)
+//	return container.NewElement(value)
+//}
+//
+//func (this *Map) Remove(key ...interface{}) {
+//	for _, k := range key {
+//		this.mp.Remove(k)
+//	}
+//}
+//
+//func (this *Map) IsEmpty() bool {
+//	return this.mp.Empty()
+//}
+//
+//func (this *Map) Size() int {
+//	return this.mp.Size()
+//}
+//
+//func (this *Map) Keys() []*container.Element {
+//	keys := this.mp.Keys()
+//	elems := make([]*container.Element, 0)
+//	for _, key := range keys {
+//		elems = append(elems, container.NewElement(key))
+//	}
+//	return elems
+//}
+//
+//func (this *Map) Values() []*container.Element {
+//	values := this.mp.Values()
+//	elems := make([]*container.Element, 0)
+//	for _, value := range values {
+//		elems = append(elems, container.NewElement(value))
+//	}
+//	return elems
+//}
+//
+//func (this *Map) Find(fn func(key, value *container.Element) bool) (*container.Element, bool) {
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		keyElem := container.NewElement(key)
+//		valElem := container.NewElement(value)
+//		if fn(keyElem, valElem) {
+//			return valElem, true
+//		}
+//	}
+//	return nil, false
+//}
+//
+//func (this *Map) FilterEmpty() {
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		if value == nil {
+//			this.mp.Remove(key)
+//		}
+//	}
+//}
+//
+//func (this *Map) Flip() {
+//	newMp := New()
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		newMp.Set(value, key)
+//	}
+//	*this = *newMp
+//}
+//
+//func (this *Map) Clone() *Map {
+//	newMp := New()
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		valueElem := container.NewElement(value)
+//		keyElem := container.NewElement(key)
+//		newMp.mp.Put(keyElem.Clone().Interface(), valueElem.Clone().Interface())
+//	}
+//	return newMp
+//}
+//
+//func (this *Map) Clear() {
+//	this.mp.Clear()
+//}
+//
+//func (this *Map) Each(fn func(key, val *container.Element)) {
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		this.mp.Remove(key)
+//		keyElem := container.NewElement(key)
+//		valElem := container.NewElement(value)
+//		fn(keyElem, valElem)
+//		this.mp.Put(keyElem.Interface(), valElem.Interface())
+//	}
+//}
+//
+//func (this *Map) Iterator(fn func(key, val *container.Element) bool) {
+//	keys := this.mp.Keys()
+//	for _, key := range keys {
+//		value, _ := this.mp.Get(key)
+//		keyElem := container.NewElement(key)
+//		valElem := container.NewElement(value)
+//		if !fn(keyElem, valElem) {
+//			return
+//		}
+//		this.mp.Remove(key)
+//		this.mp.Put(keyElem.Interface(), valElem.Interface())
+//	}
+//}
+//
+//func (this *Map) Map() map[*container.Element]*container.Element {
+//	mp := make(map[*container.Element]*container.Element)
+//	this.Clone().Each(func(key, val *container.Element) {
+//		mp[key] = val
+//	})
+//	return mp
+//}
+//
+//func (this *Map) MapStrAny() map[string]*container.Element {
+//	mp := make(map[string]*container.Element)
+//	this.Clone().Each(func(key, val *container.Element) {
+//		str := key.String()
+//		mp[str] = val
+//	})
+//	return mp
+//}
+//
+//func (this *Map) Merge(mp *Map) {
+//	mp.Each(func(key, val *container.Element) {
+//		this.mp.Put(key.Interface(), val.Interface())
+//	})
+//}
+//
+//func (this *Map) MergeMapAny(mp map[interface{}]interface{}) {
+//	for key, val := range mp {
+//		this.mp.Put(key, val)
+//	}
+//}
+//
+//func (this *Map) MergeMapStr(mp map[string]interface{}) {
+//	for key, val := range mp {
+//		this.mp.Put(key, val)
+//	}
+//}
+//
+//// Value return json value, implement driver.Valuer interface
+//func (m Map) Value() (driver.Value, error) {
+//	bytes, err := m.mp.ToJSON()
+//	if err != nil {
+//		return nil, err
+//	}
+//	return string(bytes), nil
+//}
+//
+//// Scan value into Jsonb, implements sql.Scanner interface
+//func (m *Map) Scan(value interface{}) error {
+//	*m = Map{hashmap.New()}
+//	if value == nil {
+//		return nil
+//	}
+//
+//	var bytes []byte
+//	switch v := value.(type) {
+//	case []byte:
+//		bytes = v
+//	case string:
+//		bytes = []byte(v)
+//	default:
+//		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
+//	}
+//	return m.mp.FromJSON(bytes)
+//}
+//
+//// MarshalJSON to output non base64 encoded []byte
+//func (m Map) MarshalJSON() ([]byte, error) {
+//	return m.mp.ToJSON()
+//}
+//
+//// UnmarshalJSON to deserialize []byte
+//func (m *Map) UnmarshalJSON(b []byte) error {
+//	return m.mp.FromJSON(b)
+//}
+//
+//func (m Map) String() string {
+//	return fmt.Sprintf("%+v", m.MapStrAny())
+//}
+//
+//// GormDataType gorm common data type
+//func (Map) GormDataType() string {
+//	return "json"
+//}
+//
+//// GormDBDataType gorm db data type
+//func (Map) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+//	return "JSON"
+//}
+//
+//func (km Map) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+//	if km.mp.Size() == 0 {
+//		return gorm.Expr("{}")
+//	}
+//
+//	data, _ := km.MarshalJSON()
+//	switch db.Dialector.Name() {
+//	case "mysql":
+//		if v, ok := db.Dialector.(*mysql.Dialector); ok && !strings.Contains(v.ServerVersion, "MariaDB") {
+//			return gorm.Expr("CAST(? AS JSON)", string(data))
+//		}
+//	}
+//
+//	return gorm.Expr("?", string(data))
+//}
+//
+//type Convert interface {
+//	ConvertMap() *Map
+//}
