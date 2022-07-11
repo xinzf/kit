@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emirpasic/gods/maps/hashmap"
+	"github.com/xinzf/kit/container/kvar"
 	"github.com/xinzf/kit/utils"
 	"golang.org/x/exp/constraints"
 	"gorm.io/driver/mysql"
@@ -39,7 +40,7 @@ func (this *Map[K, V]) Set(key K, value V) {
 func (this *Map[K, V]) Get(key K) (value V, found bool) {
 	var val interface{}
 	val, found = this.mp.Get(key)
-	if !found {
+	if !found || val == nil {
 		return
 	}
 	value = val.(V)
@@ -106,7 +107,13 @@ func (this *Map[K, V]) Keys() []K {
 func (this *Map[K, V]) Values() (values []V) {
 	values = make([]V, 0, this.Size())
 	for _, v := range this.mp.Values() {
-		values = append(values, v.(V))
+		if v == nil {
+			var alias V
+			_ = kvar.New(nil).Convert(&alias)
+			values = append(values, alias)
+		} else {
+			values = append(values, v.(V))
+		}
 	}
 	return
 }
