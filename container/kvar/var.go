@@ -698,6 +698,9 @@ func (this *Var) Clone() *Var {
 }
 
 func (this *Var) Convert(target interface{}) error {
+	if this.value == nil {
+		return nil
+	}
 	kind := reflect.ValueOf(target).Kind()
 	if kind != reflect.Ptr && kind != reflect.Map {
 		return errors.New("Element.Bind must required a pointer or map argument")

@@ -130,7 +130,13 @@ func (this *List[T]) Find(fn func(ele T) bool) (idx int, value T) {
 	values := this.list.Values()
 	var val interface{}
 	for idx, val = range values {
-		value = val.(T)
+		if val == nil {
+			var alias T
+			_ = kvar.New(val).Convert(&alias)
+			value = alias
+		} else {
+			value = val.(T)
+		}
 		if fn(value) {
 			return
 		}
