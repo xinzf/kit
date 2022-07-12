@@ -86,12 +86,12 @@ func DB(name ...string) *gorm.DB {
 }
 
 type DbConfig struct {
-	Host   string
-	User   string
-	Pswd   string
-	Name   string
-	Driver string
-	port   int
+	Host   string `json:"host"`
+	User   string `json:"user"`
+	Pswd   string `json:"pswd"`
+	Name   string `json:"name"`
+	Driver string `json:"driver"`
+	port   int    `json:"-"`
 }
 
 func (d DbConfig) String() string {
