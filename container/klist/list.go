@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
-	"reflect"
 	"strings"
 )
 
@@ -30,21 +29,21 @@ func (this *List[T]) Add(values ...T) {
 		return
 	}
 	equal := func(val T) bool {
-		value := values[0]
-		refType := reflect.TypeOf(value)
-		if !refType.Implements(reflect.TypeOf(new(ElementEqual)).Elem()) {
-			return false
-		}
-
-		method := reflect.ValueOf(val).MethodByName("Equal")
-		idx, _ := this.list.Find(func(_ int, elem interface{}) bool {
-			_values := method.Call([]reflect.Value{reflect.ValueOf(elem)})
-			return _values[0].Interface().(bool)
-		})
-		if idx == -1 {
-			return false
-		}
-		return true
+		//value := values[0]
+		//refType := reflect.TypeOf(value)
+		//if !refType.Implements(reflect.TypeOf(new(ElementEqual)).Elem()) {
+		//	return false
+		//}
+		//
+		//method := reflect.ValueOf(val).MethodByName("Equal")
+		//idx, _ := this.list.Find(func(_ int, elem interface{}) bool {
+		//	_values := method.Call([]reflect.Value{reflect.ValueOf(elem)})
+		//	return _values[0].Interface().(bool)
+		//})
+		//if idx == -1 {
+		//	return false
+		//}
+		return false
 	}
 
 	for _, value := range values {
