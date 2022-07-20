@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+const (
+	MYSQL      string = "mysql"
+	POSTGRESQL string = "postgresql"
+)
+
 var inited map[string]*gorm.DB = map[string]*gorm.DB{}
 
 func connect(config DbConfig) (client *gorm.DB, err error) {
@@ -97,10 +102,10 @@ type DbConfig struct {
 func (d DbConfig) String() string {
 
 	if d.Driver == "" {
-		d.Driver = "mysql"
+		d.Driver = MYSQL
 	}
 
-	if d.Driver == "postgresql" {
+	if d.Driver == POSTGRESQL {
 		strs := strings.Split(d.Host, ":")
 		if len(strs) == 2 {
 			d.Host = strs[0]
@@ -109,39 +114,11 @@ func (d DbConfig) String() string {
 	}
 
 	var dsn string
-	if d.Driver == "mysql" {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True", d.User, d.Pswd, d.Host, d.Name)
+	if d.Driver == MYSQL {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&timeout=5s", d.User, d.Pswd, d.Host, d.Name)
 	} else {
 		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Shanghai", d.Host, d.User, d.Pswd, d.Name, d.port)
 	}
 
 	return dsn
-	//
-	//newLogger := logger.New(
-	//    log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer（日志输出的目标，前缀和日志包含的内容——译者注）
-	//    logger.Config{
-	//        SlowThreshold:             time.Second,   // 慢 SQL 阈值
-	//        LogLevel:                  logger.Silent, // 日志级别
-	//        IgnoreRecordNotFoundError: true,          // 忽略ErrRecordNotFound（记录未找到）错误
-	//        Colorful:                  false,         // 禁用彩色打印
-	//    },
-	//)
-	//
-	//var err error
-	//if d.Driver == "mysql" {
-	//    db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-	//        Logger: newLogger,
-	//    })
-	//} else {
-	//    db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-	//        Logger: newLogger,
-	//    })
-	//}
-	//
-	//if err != nil {
-	//    panic(fmt.Errorf("Connect DB failed, err: %s\n", err.Error()))
-	//}
-	//
-	//db = db.Debug()
-	//klog.Args("dsn", fmt.Sprintf("[%s] %s", d.Driver, dsn)).Info("Db connect success!")
 }

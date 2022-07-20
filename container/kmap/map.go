@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emirpasic/gods/maps/hashmap"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/xinzf/kit/container/kvar"
-	"github.com/xinzf/kit/utils"
 	"golang.org/x/exp/constraints"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -129,15 +129,23 @@ func (this *Map[K, V]) FilterEmpty() {
 }
 
 func (this *Map[K, V]) Clone() *Map[K, V] {
-	newMp := New[K, V]()
-	keys := this.mp.Keys()
-	for _, key := range keys {
-		newKey := utils.Clone(key)
-		value, _ := this.mp.Get(key)
-		newValue := utils.Clone(value)
-		newMp.mp.Put(newKey, newValue)
+	newMp := make(map[K]V)
+	bts, err := this.mp.ToJSON()
+	if err == nil {
+		_ = jsoniter.Unmarshal(bts, &newMp)
+		return New[K, V](newMp)
 	}
-	return newMp
+	return New[K, V]()
+	//jsoniter.Unmarshal()
+	//newMp := New[K, V]()
+	//keys := this.mp.Keys()
+	//for _, key := range keys {
+	//	newKey := utils.Clone(key)
+	//	value, _ := this.mp.Get(key)
+	//	newValue := utils.Clone(value)
+	//	newMp.mp.Put(newKey, newValue)
+	//}
+	//return newMp
 }
 
 func (this *Map[K, V]) Clear() {

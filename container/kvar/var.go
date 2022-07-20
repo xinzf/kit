@@ -548,15 +548,50 @@ func (this *Var) Equal(elem *Var) bool {
 }
 
 func (this *Var) Map() map[string]interface{} {
-	return cast.ToStringMap(this.value)
+	if bts, ok := this.Interface().([]byte); ok {
+		mp := make(map[string]interface{})
+		_ = jsoniter.Unmarshal(bts, &mp)
+		return mp
+	} else if this.IsMap() {
+		return cast.ToStringMap(this.value)
+	} else if this.IsStruct() || this.IsPointer() {
+		bts, err := jsoniter.Marshal(this.Interface())
+		if err != nil {
+			return map[string]interface{}{}
+		}
+
+		mp := make(map[string]interface{})
+		_ = jsoniter.Unmarshal(bts, &mp)
+		return mp
+	} else {
+		return cast.ToStringMap(this.value)
+	}
 }
 
 func (this *Var) MapStr() map[string]string {
-	return cast.ToStringMapString(this.value)
+	mp := this.Map()
+	if mp == nil {
+		return map[string]string{}
+	}
+
+	result := make(map[string]string)
+	for k, v := range mp {
+		mp[k] = New(v).String()
+	}
+	return result
 }
 
 func (this *Var) MapInt() map[string]int {
-	return cast.ToStringMapInt(this.value)
+	mp := this.Map()
+	if mp == nil {
+		return map[string]int{}
+	}
+
+	result := make(map[string]int)
+	for k, v := range mp {
+		mp[k] = New(v).Int()
+	}
+	return result
 }
 
 func (this *Var) MapInt8() map[string]int8 {
@@ -602,11 +637,21 @@ func (this *Var) MapInt32() map[string]int32 {
 }
 
 func (this *Var) MapInt64() map[string]int64 {
-	return cast.ToStringMapInt64(this.value)
+	mp := this.MapInt()
+	if mp == nil {
+		return map[string]int64{}
+	}
+	newMp := make(map[string]int64)
+	{
+		for s, i := range mp {
+			newMp[s] = cast.ToInt64(i)
+		}
+	}
+	return newMp
 }
 
 func (this *Var) MapFloat32() map[string]float32 {
-	mp := this.Map()
+	mp := this.MapInt64()
 	if mp == nil {
 		return map[string]float32{}
 	}
@@ -619,7 +664,7 @@ func (this *Var) MapFloat32() map[string]float32 {
 }
 
 func (this *Var) MapFloat64() map[string]float64 {
-	mp := this.Map()
+	mp := this.MapInt64()
 	if mp == nil {
 		return map[string]float64{}
 	}
@@ -632,11 +677,24 @@ func (this *Var) MapFloat64() map[string]float64 {
 }
 
 func (this *Var) MapBool() map[string]bool {
+	mp := this.Map()
+	if mp == nil {
+		return map[string]bool{}
+	}
+	newMp := make(map[string]bool)
+	{
+		for s, i := range mp {
+			newMp[s] = New(i).Bool()
+		}
+	}
 	return cast.ToStringMapBool(this.value)
 }
 
 func (this *Var) MapVar() map[string]*Var {
 	mp := this.Map()
+	if mp == nil || len(mp) == 0 {
+		return map[string]*Var{}
+	}
 	newMps := make(map[string]*Var)
 	for s, i := range mp {
 		newMps[s] = New(i)
