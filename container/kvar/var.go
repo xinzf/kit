@@ -504,7 +504,9 @@ func (this *Var) Time() time.Time {
 		return c.Carbon2Time(), nil
 	}
 
-	if t, err := parseTimestamp(); err == nil {
+	if t, ok := this.value.(time.Time); ok {
+		return t
+	} else if t, err := parseTimestamp(); err == nil {
 		return t
 	} else if t, err = parseString(); err == nil {
 		return t

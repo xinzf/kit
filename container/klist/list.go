@@ -59,7 +59,13 @@ func (this *List[T]) Get(index int) (value T, found bool) {
 	var val interface{}
 	val, found = this.list.Get(index)
 	if found {
-		value = val.(T)
+		if val == nil {
+			var alias T
+			_ = kvar.New(val).Convert(&alias)
+			return alias, true
+		} else {
+			value = val.(T)
+		}
 	}
 	return
 }
@@ -149,12 +155,20 @@ func (this *List[T]) Select(fn ...func(idx int, ele T) bool) *List[T] {
 	newList := New[T]()
 	values := this.list.Values()
 	for i, value := range values {
+		var val T
+		if value == nil {
+			var alias T
+			_ = kvar.New(value).Convert(&alias)
+			val = alias
+		} else {
+			val = value.(T)
+		}
 		if len(fn) > 0 {
-			if fn[0](i, value.(T)) {
-				newList.Add(value.(T))
+			if fn[0](i, val) {
+				newList.Add(val)
 			}
 		} else {
-			newList.Add(value.(T))
+			newList.Add(val)
 		}
 	}
 	return newList
