@@ -25,7 +25,14 @@ var inited map[string]*gorm.DB = map[string]*gorm.DB{}
 func connect(config DbConfig) (client *gorm.DB, err error) {
 	var found bool
 	if client, found = inited[config.String()]; found {
-		return
+		sqlDB, err := client.DB()
+		if err == nil {
+			err = sqlDB.Ping()
+			if err == nil {
+				return client, nil
+			}
+		}
+		delete(inited, config.String())
 	}
 
 	newLogger := logger.New(
@@ -49,7 +56,19 @@ func connect(config DbConfig) (client *gorm.DB, err error) {
 		return
 	}
 
-	client = client.Debug()
+	//client = client.Debug()
+
+	sqlDB, _ := client.DB()
+
+	// SetMaxIdleConns 设置空闲连接池中连接的最大数量
+	sqlDB.SetMaxIdleConns(10)
+
+	// SetMaxOpenConns 设置打开数据库连接的最大数量。
+	sqlDB.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime 设置了连接可复用的最大时间。
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
 	klog.Args("dsn", fmt.Sprintf("[%s] %s", config.Driver, config.String())).Info("Db connect success!")
 	inited[config.String()] = client
 	return

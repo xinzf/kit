@@ -152,6 +152,32 @@ func (this *Map[K, V]) Clear() {
 	this.mp.Clear()
 }
 
+func (this *Map[K, V]) Find(fn func(item V) bool) (K, V, bool) {
+	keys := this.mp.Keys()
+
+	for _, key := range keys {
+		value, _ := this.mp.Get(key)
+		var alias V
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(V)
+		}
+
+		if fn(alias) {
+			return key.(K), alias, true
+		}
+	}
+
+	var (
+		k K
+		v V
+	)
+	_ = kvar.New(nil).Convert(&k)
+	_ = kvar.New(nil).Convert(&v)
+	return k, v, false
+}
+
 func (this *Map[K, V]) Each(fn func(key K, value V)) {
 	keys := this.mp.Keys()
 	for _, key := range keys {
