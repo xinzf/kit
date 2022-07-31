@@ -102,12 +102,18 @@ func (this *List[T]) List(filter ...func(elem T) bool) []T {
 	values := this.list.Values()
 	elements := make([]T, 0)
 	for _, value := range values {
+		var alias T
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(T)
+		}
 		if len(filter) > 0 {
-			if filter[0](value.(T)) {
-				elements = append(elements, value.(T))
+			if filter[0](alias) {
+				elements = append(elements, alias)
 			}
 		} else {
-			elements = append(elements, value.(T))
+			elements = append(elements, alias)
 		}
 	}
 	return elements
@@ -115,16 +121,26 @@ func (this *List[T]) List(filter ...func(elem T) bool) []T {
 
 func (this *List[T]) Each(fn func(idx int, elem T)) {
 	this.list.Each(func(index int, value interface{}) {
-		elem := value.(T)
-		fn(index, elem)
+		var alias T
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(T)
+		}
+		fn(index, alias)
 	})
 }
 
 func (this *List[T]) Iterator(fn func(idx int, elem T) error) error {
 	values := this.list.Values()
 	for i, value := range values {
-		elem := value.(T)
-		if err := fn(i, elem); err != nil {
+		var alias T
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(T)
+		}
+		if err := fn(i, alias); err != nil {
 			return err
 		}
 	}

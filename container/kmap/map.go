@@ -182,7 +182,13 @@ func (this *Map[K, V]) Each(fn func(key K, value V)) {
 	keys := this.mp.Keys()
 	for _, key := range keys {
 		value, _ := this.mp.Get(key)
-		fn(key.(K), value.(V))
+		var alias V
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(V)
+		}
+		fn(key.(K), alias)
 	}
 }
 
@@ -190,7 +196,13 @@ func (this *Map[K, V]) Iterator(fn func(key K, value V) error) error {
 	keys := this.mp.Keys()
 	for _, key := range keys {
 		value, _ := this.mp.Get(key)
-		if err := fn(key.(K), value.(V)); err != nil {
+		var alias V
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(V)
+		}
+		if err := fn(key.(K), alias); err != nil {
 			return err
 		}
 	}
@@ -201,7 +213,13 @@ func (this *Map[K, V]) Map() map[K]V {
 	mp := make(map[K]V)
 	for _, key := range this.mp.Keys() {
 		value, _ := this.mp.Get(key)
-		mp[key.(K)] = value.(V)
+		var alias V
+		if value == nil {
+			value = kvar.New(nil).Convert(&alias)
+		} else {
+			alias = value.(V)
+		}
+		mp[key.(K)] = alias
 	}
 	return mp
 }

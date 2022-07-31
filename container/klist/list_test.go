@@ -43,3 +43,13 @@ func TestList_Sort(t *testing.T) {
 	})
 
 }
+
+func TestList_Union(t *testing.T) {
+	list1 := New[string]("a", "b")
+	list2 := New[string]("c", "d")
+	list3 := New[string]("b", "d", "e")
+
+	list := New[string]()
+	list = list.Union(list1, list2, list3)
+	fmt.Println(list.List())
+}
