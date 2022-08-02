@@ -310,6 +310,8 @@ func (km Map[K, V]) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 		if v, ok := db.Dialector.(*mysql.Dialector); ok && !strings.Contains(v.ServerVersion, "MariaDB") {
 			return gorm.Expr("CAST(? AS JSON)", string(data))
 		}
+	case "postgres":
+		return gorm.Expr("CAST(? AS JSONB)", string(data))
 	}
 
 	return gorm.Expr("?", string(data))

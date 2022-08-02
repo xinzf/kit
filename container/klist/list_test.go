@@ -53,3 +53,11 @@ func TestList_Union(t *testing.T) {
 	list = list.Union(list1, list2, list3)
 	fmt.Println(list.List())
 }
+
+func TestList_Chunk(t *testing.T) {
+	list := New[string]("b", "d", "e", "f")
+	chunks := list.Chunk(2)
+	for _, l := range chunks {
+		fmt.Println(l.List())
+	}
+}

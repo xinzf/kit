@@ -51,6 +51,10 @@ func New(val any) *Var {
 	return v
 }
 
+func (this *Var) IsComparable() bool {
+	return this.isComparable
+}
+
 func (this *Var) IsNil() bool {
 	return this.value == nil
 }
@@ -907,12 +911,18 @@ func (v Var) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 		return gorm.Expr("Null")
 	}
 
+	if v.isComparable {
+		return gorm.Expr("?", v.value)
+	}
+
 	data, _ := v.MarshalJSON()
 	switch db.Dialector.Name() {
 	case "mysql":
 		if v, ok := db.Dialector.(*mysql.Dialector); ok && !strings.Contains(v.ServerVersion, "MariaDB") {
 			return gorm.Expr("CAST(? AS JSON)", string(data))
 		}
+	case "postgres":
+		return gorm.Expr("CAST(? AS JSONB)", string(data))
 	}
 
 	return gorm.Expr("?", string(data))

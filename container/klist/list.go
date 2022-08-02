@@ -119,6 +119,30 @@ func (this *List[T]) List(filter ...func(elem T) bool) []T {
 	return elements
 }
 
+func (this *List[T]) Chunk(splitNum int) []*List[T] {
+	if splitNum < 1 {
+		return []*List[T]{this}
+	}
+
+	chunks := make([]*List[T], 0)
+	{
+		chunks = append(chunks, New[T]())
+	}
+
+	i := 0
+	this.Each(func(idx int, elem T) {
+		chunks[len(chunks)-1].Add(elem)
+		i = i + 1
+		if i == splitNum {
+			i = 0
+			if idx < this.Size()-1 {
+				chunks = append(chunks, New[T]())
+			}
+		}
+	})
+	return chunks
+}
+
 func (this *List[T]) Each(fn func(idx int, elem T)) {
 	this.list.Each(func(index int, value interface{}) {
 		var alias T
@@ -512,6 +536,8 @@ func (s List[T]) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 		if v, ok := db.Dialector.(*mysql.Dialector); ok && !strings.Contains(v.ServerVersion, "MariaDB") {
 			return gorm.Expr("CAST(? AS JSON)", string(data))
 		}
+	case "postgres":
+		return gorm.Expr("CAST(? AS JSONB)", string(data))
 	}
 
 	return gorm.Expr("?", string(data))

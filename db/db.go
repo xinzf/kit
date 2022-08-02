@@ -56,7 +56,7 @@ func connect(config DbConfig) (client *gorm.DB, err error) {
 		return
 	}
 
-	//client = client.Debug()
+	client = client.Debug()
 
 	sqlDB, _ := client.DB()
 
