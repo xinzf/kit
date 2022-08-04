@@ -137,7 +137,8 @@ func (this *Var) String() string {
 	if this.isComparable {
 		return cast.ToString(this.value)
 	}
-	return ""
+	str, _ := jsoniter.MarshalToString(this.value)
+	return str
 }
 
 func (this *Var) Strings() []string {
@@ -443,16 +444,14 @@ func (this *Var) Interface() interface{} {
 }
 
 func (this *Var) Interfaces() []interface{} {
-	if !this.IsSlice() {
-		return []interface{}{}
+	if this.IsSlice() {
+		return this.value.([]interface{})
 	}
 
 	values := make([]any, 0)
 	btes, _ := jsoniter.Marshal(this.value)
-	jsoniter.Unmarshal(btes, &values)
+	_ = jsoniter.Unmarshal(btes, &values)
 	return values
-
-	//return cast.ToSlice(this.value)
 }
 
 func (this *Var) Vars() []*Var {
