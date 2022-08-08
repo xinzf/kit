@@ -301,7 +301,14 @@ func (Map[K, V]) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 func (km Map[K, V]) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	if km.mp.Size() == 0 {
-		return gorm.Expr("{}")
+		switch db.Dialector.Name() {
+		case "mysql":
+			return gorm.Expr("CAST('{}' AS JSON)")
+		case "postgres":
+			return gorm.Expr("CAST('{}' AS JSONB)")
+		default:
+			return gorm.Expr("NULL")
+		}
 	}
 
 	data, _ := km.MarshalJSON()
