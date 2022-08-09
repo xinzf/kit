@@ -56,15 +56,24 @@ func connect(config DbConfig) (client *gorm.DB, err error) {
 		return
 	}
 
-	client = client.Debug()
+	if config.Debug {
+		client = client.Debug()
+	}
+
+	if config.MaxIdleCons == 0 {
+		config.MaxIdleCons = 10
+	}
+	if config.MaxOpenCons == 0 {
+		config.MaxOpenCons = 100
+	}
 
 	sqlDB, _ := client.DB()
 
 	// SetMaxIdleConns 设置空闲连接池中连接的最大数量
-	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxIdleConns(config.MaxIdleCons)
 
 	// SetMaxOpenConns 设置打开数据库连接的最大数量。
-	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetMaxOpenConns(config.MaxOpenCons)
 
 	// SetConnMaxLifetime 设置了连接可复用的最大时间。
 	sqlDB.SetConnMaxLifetime(time.Hour)
@@ -91,12 +100,18 @@ func DB(name ...string) *gorm.DB {
 		config.Pswd = kcfg.Get[string]("db.pswd")
 		config.Name = kcfg.Get[string]("db.name")
 		config.Driver = kcfg.Get[string]("db.driver")
+		config.MaxIdleCons = kcfg.Get[int]("db.maxIdleCons")
+		config.MaxOpenCons = kcfg.Get[int]("db.maxOpenCons")
+		config.Debug = kcfg.Get[bool]("db.debug")
 	} else {
 		config.Host = kcfg.Get[string](fmt.Sprintf("db.%s.host", connectName))
 		config.User = kcfg.Get[string](fmt.Sprintf("db.%s.user", connectName))
 		config.Pswd = kcfg.Get[string](fmt.Sprintf("db.%s.pswd", connectName))
 		config.Name = kcfg.Get[string](fmt.Sprintf("db.%s.name", connectName))
 		config.Driver = kcfg.Get[string](fmt.Sprintf("db.%s.driver", connectName))
+		config.MaxIdleCons = kcfg.Get[int](fmt.Sprintf("db.%s.maxIdleCons", connectName))
+		config.MaxOpenCons = kcfg.Get[int](fmt.Sprintf("db.%s.maxOpenCons", connectName))
+		config.Debug = kcfg.Get[bool](fmt.Sprintf("db.%s.debug", connectName))
 	}
 
 	db, err := connect(config)
@@ -110,12 +125,15 @@ func DB(name ...string) *gorm.DB {
 }
 
 type DbConfig struct {
-	Host   string `json:"host"`
-	User   string `json:"user"`
-	Pswd   string `json:"pswd"`
-	Name   string `json:"name"`
-	Driver string `json:"driver"`
-	port   int    `json:"-"`
+	Host        string `json:"host"`
+	User        string `json:"user"`
+	Pswd        string `json:"pswd"`
+	Name        string `json:"name"`
+	Driver      string `json:"driver"`
+	MaxIdleCons int    `json:"maxIdleCons"`
+	MaxOpenCons int    `json:"maxOpenCons"`
+	Debug       bool   `json:"debug"`
+	port        int    `json:"-"`
 }
 
 func (d DbConfig) String() string {
