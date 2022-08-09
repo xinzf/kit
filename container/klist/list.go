@@ -20,20 +20,18 @@ type List[T any] struct {
 	list *arraylist.List
 }
 
+func New[T any](values ...T) *List[T] {
+	l := &List[T]{list: arraylist.New()}
+	l.Add(values...)
+	return l
+}
+
 func (this *List[T]) Add(values ...T) {
 	if len(values) == 0 {
 		return
 	}
-	equal := func(val T) bool {
-		return false
-	}
-
 	for _, value := range values {
-		if equal(value) {
-			continue
-		} else {
-			this.list.Add(value)
-		}
+		this.list.Add(value)
 	}
 }
 
@@ -41,11 +39,7 @@ func (this *List[T]) Get(index int) (value T, found bool) {
 	var val interface{}
 	val, found = this.list.Get(index)
 	if found {
-		if val == nil {
-			var alias T
-			_ = kvar.New(val).Convert(&alias)
-			return alias, true
-		} else {
+		if val != nil {
 			value = val.(T)
 		}
 	}
@@ -63,8 +57,11 @@ func (this *List[T]) RemoveValue(value T) {
 func (this *List[T]) RemoveByFilter(filter func(value T) bool) {
 	values := this.list.Values()
 	for idx, val := range values {
-		value := val.(T)
-		if filter(value) {
+		var alias T
+		if val != nil {
+			alias = val.(T)
+		}
+		if filter(alias) {
 			this.list.Remove(idx)
 		}
 	}
@@ -81,56 +78,30 @@ func (this *List[T]) Contains(values ...T) bool {
 }
 
 func (this *List[T]) List(filter ...func(elem T) bool) []T {
+	if filter == nil || len(filter) == 0 {
+		filter = []func(elem T) bool{func(elem T) bool {
+			return true
+		}}
+	}
+
 	values := this.list.Values()
 	elements := make([]T, 0)
 	for _, value := range values {
 		var alias T
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(T)
 		}
-		if len(filter) > 0 {
-			if filter[0](alias) {
-				elements = append(elements, alias)
-			}
-		} else {
+		if filter[0](alias) {
 			elements = append(elements, alias)
 		}
 	}
 	return elements
 }
 
-func (this *List[T]) Chunk(splitNum int) []*List[T] {
-	if splitNum < 1 {
-		return []*List[T]{this}
-	}
-
-	chunks := make([]*List[T], 0)
-	{
-		chunks = append(chunks, New[T]())
-	}
-
-	i := 0
-	this.Each(func(idx int, elem T) {
-		chunks[len(chunks)-1].Add(elem)
-		i = i + 1
-		if i == splitNum {
-			i = 0
-			if idx < this.Size()-1 {
-				chunks = append(chunks, New[T]())
-			}
-		}
-	})
-	return chunks
-}
-
 func (this *List[T]) Each(fn func(idx int, elem T)) {
 	this.list.Each(func(index int, value interface{}) {
 		var alias T
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(T)
 		}
 		fn(index, alias)
@@ -141,11 +112,10 @@ func (this *List[T]) Iterator(fn func(idx int, elem T) error) error {
 	values := this.list.Values()
 	for i, value := range values {
 		var alias T
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(T)
 		}
+
 		if err := fn(i, alias); err != nil {
 			return err
 		}
@@ -157,11 +127,7 @@ func (this *List[T]) Find(fn func(ele T) bool) (idx int, value T) {
 	values := this.list.Values()
 	var val interface{}
 	for idx, val = range values {
-		if val == nil {
-			var alias T
-			_ = kvar.New(val).Convert(&alias)
-			value = alias
-		} else {
+		if val != nil {
 			value = val.(T)
 		}
 		if fn(value) {
@@ -173,39 +139,43 @@ func (this *List[T]) Find(fn func(ele T) bool) (idx int, value T) {
 	return
 }
 
-func (this *List[T]) Select(fn ...func(idx int, ele T) bool) *List[T] {
+func (this *List[T]) Select(filter ...func(idx int, ele T) bool) *List[T] {
+	if filter == nil || len(filter) == 0 {
+		filter = []func(idx int, ele T) bool{func(idx int, ele T) bool {
+			return true
+		}}
+	}
+
 	newList := New[T]()
 	values := this.list.Values()
 	for i, value := range values {
-		var val T
-		if value == nil {
-			var alias T
-			_ = kvar.New(value).Convert(&alias)
-			val = alias
-		} else {
-			val = value.(T)
+		var alias T
+		if value != nil {
+			alias = value.(T)
 		}
-		if len(fn) > 0 {
-			if fn[0](i, val) {
-				newList.Add(val)
-			}
-		} else {
-			newList.Add(val)
+		if filter[0](i, alias) {
+			newList.Add(alias)
 		}
 	}
 	return newList
 }
 
-func (this *List[T]) Clone(fn ...func(idx int, ele T) bool) *List[T] {
+func (this *List[T]) Clone(filter ...func(idx int, ele T) bool) *List[T] {
+	if filter == nil || len(filter) == 0 {
+		filter = []func(idx int, ele T) bool{func(idx int, ele T) bool {
+			return true
+		}}
+	}
+
 	newList := New[T]()
 	values := this.list.Values()
 	for i, value := range values {
-		elem := utils.Clone(value).(T)
-		if len(fn) > 0 {
-			if fn[0](i, elem) {
-				newList.Add(elem)
-			}
-		} else {
+		var elem T
+		if value != nil {
+			elem = utils.Clone(value).(T)
+		}
+
+		if filter[0](i, elem) {
 			newList.Add(elem)
 		}
 	}
@@ -345,66 +315,6 @@ func (this *List[T]) Set(index int, value T) {
 	}
 }
 
-// Intersect 交集，属于set且属于others的元素为元素的集合，others 只要有一个不相符即抛弃
-func (this *List[T]) Intersect(others ...*List[T]) (newList *List[T]) {
-	newList = New[T]()
-	this.Each(func(_ int, a T) {
-		same := true
-		for _, other := range others {
-			idx, _ := other.Find(func(b T) bool {
-				return kvar.New(a).Equal(kvar.New(b))
-			})
-			if idx == -1 {
-				same = false
-				break
-			}
-		}
-		if same {
-			newList.Add(a)
-		}
-	})
-	return
-}
-
-// Diff 差集，属于set且不属于others的元素为元素的集合，others只要有一个相符，即抛弃
-func (this *List[T]) Diff(others ...*List[T]) (newList *List[T]) {
-	newList = New[T]()
-
-	this.Each(func(_ int, a T) {
-		same := true
-		for _, other := range others {
-			if idx, _ := other.Find(func(b T) bool {
-				return kvar.New(a).Equal(kvar.New(b))
-			}); idx != -1 {
-				same = false
-				break
-			}
-		}
-		if !same {
-			newList.Add(a)
-		}
-	})
-
-	return
-}
-
-// Union 并集，属于set或属于others的元素为元素的集合。
-func (this *List[T]) Union(others ...*List[T]) (newList *List[T]) {
-	newList = New[T]()
-	others = append(others, this)
-	for _, other := range others {
-		other.Each(func(_ int, a T) {
-			idx, _ := newList.Find(func(b T) bool {
-				return kvar.New(a).Equal(kvar.New(b))
-			})
-			if idx == -1 {
-				newList.Add(a)
-			}
-		})
-	}
-	return
-}
-
 //Distinct 去重
 func (this *List[T]) Distinct() (newList *List[T]) {
 	newList = New[T]()
@@ -525,10 +435,4 @@ func (s List[T]) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	}
 
 	return gorm.Expr("?", string(data))
-}
-
-func New[T any](values ...T) *List[T] {
-	l := &List[T]{list: arraylist.New()}
-	l.Add(values...)
-	return l
 }

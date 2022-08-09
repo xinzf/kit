@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/golang-module/carbon/v2"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/r3labs/diff/v3"
 	"github.com/spf13/cast"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -21,6 +22,7 @@ type Var struct {
 	value        any
 	kind         reflect.Kind
 	isComparable bool
+	isBytes      bool
 }
 
 func New(val any) *Var {
@@ -46,6 +48,12 @@ func New(val any) *Var {
 		reflect.Bool:
 		v.isComparable = true
 	default:
+		if _, ok := v.value.(time.Time); ok {
+			v.isComparable = true
+		}
+		if _, ok := v.value.([]byte); ok {
+			v.isBytes = true
+		}
 	}
 
 	return v
@@ -55,8 +63,16 @@ func (this *Var) IsComparable() bool {
 	return this.isComparable
 }
 
+func (this *Var) IsBytes() bool {
+	return this.isBytes
+}
+
 func (this *Var) IsNil() bool {
 	return this.value == nil
+}
+
+func (this *Var) IsNumeric() bool {
+	return this.IsInt() || this.IsFloat() || this.IsUint()
 }
 
 func (this *Var) IsInt() bool {
@@ -109,44 +125,65 @@ func (this *Var) IsUint() bool {
 func (this *Var) IsEmpty() bool {
 	if this.IsNil() {
 		return true
-	} else if this.IsString() {
+	} else if this.IsBytes() || this.IsString() {
 		return this.String() == ""
-	} else if this.IsInt() {
-		return this.Int64() == 0
+	} else if this.IsNumeric() {
+		return this.Float64() == 0
 	} else if this.IsSlice() {
 		return len(this.Interfaces()) == 0
 	} else if this.Bool() {
 		return this.Bool() == false
-	} else if this.IsFloat() {
-		return this.Float64() == 0
 	} else if this.IsMap() {
 		return len(this.Map()) == 0
-	} else if this.IsStruct() {
-		tpe := reflect.TypeOf(this.value)
-		return tpe.NumField() == 0 && tpe.NumMethod() == 0
-	} else if this.IsPointer() {
-		return reflect.ValueOf(this.value).IsNil()
-	} else if this.IsUint() {
-		return this.Uint64() == 0
+	} else if t, ok := this.value.(time.Time); ok {
+		return t.IsZero()
+	} else if this.IsStruct() || this.IsPointer() {
+		return false
 	} else {
 		return true
 	}
 }
 
 func (this *Var) String() string {
-	if this.isComparable {
+	if this.value == nil {
+		return ""
+	} else if this.isComparable {
 		return cast.ToString(this.value)
+	} else {
+		str, _ := jsoniter.MarshalToString(this.value)
+		return str
 	}
-	str, _ := jsoniter.MarshalToString(this.value)
-	return str
 }
 
 func (this *Var) Strings() []string {
-	if !this.IsSlice() {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []string{}
 	}
 
-	return cast.ToStringSlice(this.value)
+	strs := make([]string, 0)
+	{
+		for _, val := range vals {
+			strs = append(strs, New(val).String())
+		}
+	}
+	return strs
+
+	//if this.IsSlice() {
+	//	return cast.ToStringSlice(this.value)
+	//} else if this.IsBytes() {
+	//	strs := make([]string, 0)
+	//	_ = jsoniter.Unmarshal(this.value.([]byte), &strs)
+	//	return strs
+	//} else if this.IsString() {
+	//	strs := make([]string, 0)
+	//	err := jsoniter.UnmarshalFromString(this.value.(string), &strs)
+	//	if err == nil {
+	//		return strs
+	//	}
+	//	return strings.Fields(this.value.(string))
+	//}
+	//return []string{}
 }
 
 func (this *Var) Int() int {
@@ -157,11 +194,18 @@ func (this *Var) Int() int {
 }
 
 func (this *Var) Ints() []int {
-	if this.IsSlice() == false {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []int{}
 	}
 
-	return cast.ToIntSlice(this.value)
+	ints := make([]int, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Int())
+		}
+	}
+	return ints
 }
 
 func (this *Var) int8() int8 {
@@ -172,18 +216,18 @@ func (this *Var) int8() int8 {
 }
 
 func (this *Var) Int8s() []int8 {
-	if this.IsSlice() == false {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []int8{}
 	}
 
-	ints := this.Ints()
-	int8s := make([]int8, 0)
-	if ints != nil {
-		for _, i := range ints {
-			int8s = append(int8s, cast.ToInt8(i))
+	ints := make([]int8, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).int8())
 		}
 	}
-	return int8s
+	return ints
 }
 
 func (this *Var) Int16() int16 {
@@ -194,17 +238,18 @@ func (this *Var) Int16() int16 {
 }
 
 func (this *Var) Int16s() []int16 {
-	if this.IsSlice() == false {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []int16{}
 	}
-	int16s := make([]int16, 0)
-	ints := this.Ints()
-	if ints != nil {
-		for _, i := range ints {
-			int16s = append(int16s, cast.ToInt16(i))
+
+	ints := make([]int16, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Int16())
 		}
 	}
-	return int16s
+	return ints
 }
 
 func (this *Var) Int32() int32 {
@@ -215,18 +260,18 @@ func (this *Var) Int32() int32 {
 }
 
 func (this *Var) Int32s() []int32 {
-	if this.IsSlice() == false {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []int32{}
 	}
 
-	int32s := make([]int32, 0)
-	ints := this.Ints()
-	if ints != nil {
-		for _, i := range ints {
-			int32s = append(int32s, cast.ToInt32(i))
+	ints := make([]int32, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Int32())
 		}
 	}
-	return int32s
+	return ints
 }
 
 func (this *Var) Int64() int64 {
@@ -237,17 +282,18 @@ func (this *Var) Int64() int64 {
 }
 
 func (this *Var) Int64s() []int64 {
-	if !this.IsSlice() {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []int64{}
 	}
-	int64s := make([]int64, 0)
-	ints := this.Ints()
-	if ints != nil {
-		for _, i := range ints {
-			int64s = append(int64s, cast.ToInt64(i))
+
+	ints := make([]int64, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Int64())
 		}
 	}
-	return int64s
+	return ints
 }
 
 func (this *Var) Float32() float32 {
@@ -258,23 +304,18 @@ func (this *Var) Float32() float32 {
 }
 
 func (this *Var) Float32s() []float32 {
-	if !this.IsSlice() {
-		return []float32{}
-	}
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []float32{}
 	}
 
-	floats := make([]float32, 0)
-	for _, val := range vals {
-		if v, err := cast.ToFloat32E(val); err == nil {
-			floats = append(floats, v)
-		} else {
-			floats = append(floats, 0)
+	ints := make([]float32, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Float32())
 		}
 	}
-	return floats
+	return ints
 }
 
 func (this *Var) Float64() float64 {
@@ -282,28 +323,18 @@ func (this *Var) Float64() float64 {
 }
 
 func (this *Var) Float64s() []float64 {
-	if !this.IsSlice() {
-		return []float64{}
-	}
-
-	vals := make([]any, 0)
-	bts, _ := jsoniter.Marshal(this.value)
-	_ = jsoniter.Unmarshal(bts, &vals)
-
+	vals := this.Interfaces()
 	if vals == nil {
 		return []float64{}
 	}
 
-	floats := make([]float64, 0)
-	for _, val := range vals {
-		floats = append(floats, New(val).Float64())
-		//if v, err := cast.ToFloat64E(val); err == nil {
-		//	floats = append(floats, v)
-		//} else {
-		//	floats = append(floats, 0)
-		//}
+	ints := make([]float64, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Float64())
+		}
 	}
-	return floats
+	return ints
 }
 
 func (this *Var) Uint() uint {
@@ -311,24 +342,18 @@ func (this *Var) Uint() uint {
 }
 
 func (this *Var) Uints() []uint {
-	if !this.IsSlice() {
-		return []uint{}
-	}
-
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []uint{}
 	}
 
-	uints := make([]uint, 0)
-	for _, val := range vals {
-		if v, err := cast.ToUintE(val); err == nil {
-			uints = append(uints, v)
-		} else {
-			uints = append(uints, 0)
+	ints := make([]uint, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Uint())
 		}
 	}
-	return uints
+	return ints
 }
 
 func (this *Var) Uint8() uint8 {
@@ -336,23 +361,18 @@ func (this *Var) Uint8() uint8 {
 }
 
 func (this *Var) Uint8s() []uint8 {
-	if !this.IsSlice() {
-		return []uint8{}
-	}
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []uint8{}
 	}
 
-	uint8s := make([]uint8, 0)
-	for _, val := range vals {
-		if v, err := cast.ToUint8E(val); err == nil {
-			uint8s = append(uint8s, v)
-		} else {
-			uint8s = append(uint8s, 0)
+	ints := make([]uint8, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Uint8())
 		}
 	}
-	return uint8s
+	return ints
 }
 
 func (this *Var) Uint16() uint16 {
@@ -360,23 +380,18 @@ func (this *Var) Uint16() uint16 {
 }
 
 func (this *Var) Uint16s() []uint16 {
-	if !this.IsSlice() {
-		return []uint16{}
-	}
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []uint16{}
 	}
 
-	uint16s := make([]uint16, 0)
-	for _, val := range vals {
-		if v, err := cast.ToUint16E(val); err == nil {
-			uint16s = append(uint16s, v)
-		} else {
-			uint16s = append(uint16s, 0)
+	ints := make([]uint16, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Uint16())
 		}
 	}
-	return uint16s
+	return ints
 }
 
 func (this *Var) Uint32() uint32 {
@@ -384,23 +399,18 @@ func (this *Var) Uint32() uint32 {
 }
 
 func (this *Var) Uint32s() []uint32 {
-	if !this.IsSlice() {
-		return []uint32{}
-	}
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []uint32{}
 	}
 
-	uint32s := make([]uint32, 0)
-	for _, val := range vals {
-		if v, err := cast.ToUint32E(val); err == nil {
-			uint32s = append(uint32s, v)
-		} else {
-			uint32s = append(uint32s, 0)
+	ints := make([]uint32, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Uint32())
 		}
 	}
-	return uint32s
+	return ints
 }
 
 func (this *Var) Uint64() uint64 {
@@ -408,35 +418,39 @@ func (this *Var) Uint64() uint64 {
 }
 
 func (this *Var) Uint64s() []uint64 {
-	if !this.IsSlice() {
-		return []uint64{}
-	}
-	vals := cast.ToSlice(this.value)
+	vals := this.Interfaces()
 	if vals == nil {
 		return []uint64{}
 	}
 
-	uint64s := make([]uint64, 0)
-	for _, val := range vals {
-		if v, err := cast.ToUint64E(val); err == nil {
-			uint64s = append(uint64s, v)
-		} else {
-			uint64s = append(uint64s, 0)
+	ints := make([]uint64, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Uint64())
 		}
 	}
-	return uint64s
-	//return cast.ToUint64(this.value)
+	return ints
 }
 
 func (this *Var) Bool() bool {
-	return cast.ToBool(this.value)
+	return cast.ToBool(this.String())
 }
 
 func (this *Var) Bools() []bool {
-	if !this.IsSlice() {
+	vals := this.Interfaces()
+	if vals == nil {
 		return []bool{}
 	}
-	return cast.ToBoolSlice(this.value)
+
+	fmt.Println("vals", vals)
+
+	ints := make([]bool, 0)
+	{
+		for _, val := range vals {
+			ints = append(ints, New(val).Bool())
+		}
+	}
+	return ints
 }
 
 func (this *Var) Interface() interface{} {
@@ -444,14 +458,38 @@ func (this *Var) Interface() interface{} {
 }
 
 func (this *Var) Interfaces() []interface{} {
-	if this.IsSlice() {
-		return this.value.([]interface{})
+	if this.value == nil {
+		return []interface{}{}
 	}
 
-	values := make([]any, 0)
-	btes, _ := jsoniter.Marshal(this.value)
-	_ = jsoniter.Unmarshal(btes, &values)
-	return values
+	if this.IsBytes() {
+		strs := make([]interface{}, 0)
+		_ = jsoniter.Unmarshal(this.value.([]byte), &strs)
+		return strs
+	} else if this.IsString() {
+		vals := make([]interface{}, 0)
+		err := jsoniter.UnmarshalFromString(this.value.(string), &vals)
+		if err == nil {
+			return vals
+		}
+
+		strs := strings.Fields(this.value.(string))
+		if strs != nil && len(strs) > 0 {
+			for _, str := range strs {
+				vals = append(vals, str)
+			}
+		}
+		return vals
+	} else {
+		arr := make([]interface{}, 0)
+		btes, err := jsoniter.Marshal(this.value)
+		if err != nil {
+			return arr
+		}
+
+		_ = jsoniter.Unmarshal(btes, &arr)
+		return arr
+	}
 }
 
 func (this *Var) Vars() []*Var {
@@ -532,7 +570,11 @@ func (this *Var) Times() []time.Time {
 }
 
 func (this *Var) Bytes() []byte {
-	if this.isComparable {
+	if this.value == nil {
+		return []byte{}
+	} else if this.IsBytes() {
+		return this.value.([]byte)
+	} else if this.isComparable {
 		str := this.String()
 		return []byte(str)
 	}
@@ -549,16 +591,19 @@ func (this *Var) Equal(elem *Var) bool {
 	if this.Kind() != elem.Kind() {
 		return false
 	}
-	return reflect.DeepEqual(this.value, elem.value)
+	df, _ := diff.Diff(this.value, elem.value)
+	return len(df) == 0
 }
 
 func (this *Var) Map() map[string]interface{} {
-	if bts, ok := this.Interface().([]byte); ok {
-		mp := make(map[string]interface{})
-		_ = jsoniter.Unmarshal(bts, &mp)
-		return mp
+	if this.value == nil {
+		return map[string]interface{}{}
 	} else if this.IsMap() {
 		return cast.ToStringMap(this.value)
+	} else if this.IsBytes() {
+		mp := make(map[string]interface{})
+		_ = jsoniter.Unmarshal(this.value.([]byte), &mp)
+		return mp
 	} else if this.IsStruct() || this.IsPointer() {
 		bts, err := jsoniter.Marshal(this.Interface())
 		if err != nil {
@@ -567,6 +612,10 @@ func (this *Var) Map() map[string]interface{} {
 
 		mp := make(map[string]interface{})
 		_ = jsoniter.Unmarshal(bts, &mp)
+		return mp
+	} else if this.IsString() {
+		mp := make(map[string]interface{})
+		_ = jsoniter.UnmarshalFromString(this.value.(string), &mp)
 		return mp
 	} else {
 		return cast.ToStringMap(this.value)
@@ -850,7 +899,7 @@ func (v Var) GormDataType() string {
 func (v Var) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
-		//return "JSON"
+		return "JSON"
 	case "mysql":
 		if v.isComparable {
 			switch v.kind {
@@ -900,7 +949,7 @@ func (v Var) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 			return "JSONB"
 		}
 	case "sqlserver":
-		//return "NVARCHAR(MAX)"
+		return "NVARCHAR(MAX)"
 	}
 	return ""
 }

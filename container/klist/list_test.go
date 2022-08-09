@@ -50,14 +50,24 @@ func TestList_Union(t *testing.T) {
 	list3 := New[string]("b", "d", "e")
 
 	list := New[string]()
-	list = list.Union(list1, list2, list3)
+	list = Union(list1, list2, list3)
 	fmt.Println(list.List())
 }
 
 func TestList_Chunk(t *testing.T) {
 	list := New[string]("b", "d", "e", "f")
-	chunks := list.Chunk(2)
+	chunks := Chunk(list, 2)
 	for _, l := range chunks {
 		fmt.Println(l.List())
 	}
+}
+
+type Person struct {
+	Name string
+}
+
+func TestList_List(t *testing.T) {
+	list := New[*Person](&Person{Name: "向志"}, &Person{Name: "孙涛"}, nil)
+
+	list.List()
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/emirpasic/gods/maps/hashmap"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/xinzf/kit/container/kvar"
 	"golang.org/x/exp/constraints"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -107,13 +106,11 @@ func (this *Map[K, V]) Keys() []K {
 func (this *Map[K, V]) Values() (values []V) {
 	values = make([]V, 0, this.Size())
 	for _, v := range this.mp.Values() {
-		if v == nil {
-			var alias V
-			_ = kvar.New(nil).Convert(&alias)
-			values = append(values, alias)
-		} else {
-			values = append(values, v.(V))
+		var alias V
+		if v != nil {
+			alias = v.(V)
 		}
+		values = append(values, alias)
 	}
 	return
 }
@@ -136,16 +133,6 @@ func (this *Map[K, V]) Clone() *Map[K, V] {
 		return New[K, V](newMp)
 	}
 	return New[K, V]()
-	//jsoniter.Unmarshal()
-	//newMp := New[K, V]()
-	//keys := this.mp.Keys()
-	//for _, key := range keys {
-	//	newKey := utils.Clone(key)
-	//	value, _ := this.mp.Get(key)
-	//	newValue := utils.Clone(value)
-	//	newMp.mp.Put(newKey, newValue)
-	//}
-	//return newMp
 }
 
 func (this *Map[K, V]) Clear() {
@@ -158,9 +145,7 @@ func (this *Map[K, V]) Find(fn func(item V) bool) (K, V, bool) {
 	for _, key := range keys {
 		value, _ := this.mp.Get(key)
 		var alias V
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(V)
 		}
 
@@ -173,8 +158,6 @@ func (this *Map[K, V]) Find(fn func(item V) bool) (K, V, bool) {
 		k K
 		v V
 	)
-	_ = kvar.New(nil).Convert(&k)
-	_ = kvar.New(nil).Convert(&v)
 	return k, v, false
 }
 
@@ -183,9 +166,7 @@ func (this *Map[K, V]) Each(fn func(key K, value V)) {
 	for _, key := range keys {
 		value, _ := this.mp.Get(key)
 		var alias V
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(V)
 		}
 		fn(key.(K), alias)
@@ -197,9 +178,7 @@ func (this *Map[K, V]) Iterator(fn func(key K, value V) error) error {
 	for _, key := range keys {
 		value, _ := this.mp.Get(key)
 		var alias V
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(V)
 		}
 		if err := fn(key.(K), alias); err != nil {
@@ -214,9 +193,7 @@ func (this *Map[K, V]) Map() map[K]V {
 	for _, key := range this.mp.Keys() {
 		value, _ := this.mp.Get(key)
 		var alias V
-		if value == nil {
-			value = kvar.New(nil).Convert(&alias)
-		} else {
+		if value != nil {
 			alias = value.(V)
 		}
 		mp[key.(K)] = alias
@@ -225,12 +202,18 @@ func (this *Map[K, V]) Map() map[K]V {
 }
 
 func (this *Map[K, V]) Merge(mp *Map[K, V]) {
+	if mp == nil {
+		return
+	}
 	mp.Each(func(key K, value V) {
 		this.Set(key, value)
 	})
 }
 
 func (this *Map[K, V]) MergeMap(mp map[K]V) {
+	if mp == nil {
+		return
+	}
 	for k, v := range mp {
 		this.Set(k, v)
 	}
@@ -259,7 +242,7 @@ func (m *Map[K, V]) Scan(value interface{}) error {
 	case string:
 		bytes = []byte(v)
 	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
+		return errors.New(fmt.Sprint("Failed to unmarshal JSON value:", value))
 	}
 	return m.mp.FromJSON(bytes)
 }
