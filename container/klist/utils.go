@@ -15,6 +15,10 @@ func Transform[T1, T2 any](s *List[T1], f func(T1) T2) *List[T2] {
 }
 
 func Chunk[T any](list *List[T], splitNum int) []*List[T] {
+	if list.Size() == 0 {
+		return []*List[T]{}
+	}
+
 	if splitNum < 1 {
 		return []*List[T]{list}
 	}
