@@ -254,6 +254,10 @@ func (m Map[K, V]) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON to deserialize []byte
 func (m *Map[K, V]) UnmarshalJSON(b []byte) error {
+	*m = Map[K, V]{hashmap.New()}
+	if b == nil {
+		return nil
+	}
 	return m.mp.FromJSON(b)
 }
 
