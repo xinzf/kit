@@ -19,24 +19,17 @@ func Chunk[T any](list *List[T], splitNum int) []*List[T] {
 		return []*List[T]{}
 	}
 
-	if splitNum < 1 {
+	if splitNum < 1 || list.Size() <= splitNum {
 		return []*List[T]{list}
 	}
 
 	chunks := make([]*List[T], 0)
-	{
-		chunks = append(chunks, New[T]())
-	}
-
-	i := 0
+	newList := New[T]()
 	list.Each(func(idx int, elem T) {
-		chunks[len(chunks)-1].Add(elem)
-		i = i + 1
-		if i == splitNum {
-			i = 0
-			if idx < list.Size()-1 {
-				chunks = append(chunks, New[T]())
-			}
+		newList.Add(elem)
+		if newList.Size() == splitNum || idx == list.Size()-1 {
+			chunks = append(chunks, newList.Select())
+			newList.Clear()
 		}
 	})
 	return chunks

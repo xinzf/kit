@@ -56,7 +56,7 @@ func TestList_Union(t *testing.T) {
 
 func TestList_Chunk(t *testing.T) {
 	list := New[string]("b", "d", "e", "f")
-	chunks := Chunk(list, 2)
+	chunks := Chunk(list, 5)
 	for _, l := range chunks {
 		fmt.Println(l.List())
 	}
