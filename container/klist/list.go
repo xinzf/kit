@@ -123,20 +123,20 @@ func (this *List[T]) Iterator(fn func(idx int, elem T) error) error {
 	return nil
 }
 
-func (this *List[T]) Find(fn func(ele T) bool) (idx int, value T) {
+func (this *List[T]) Find(fn func(ele T) bool) (int, T) {
 	values := this.list.Values()
-	var val interface{}
-	for idx, val = range values {
+	for idx, val := range values {
+		var value T
 		if val != nil {
 			value = val.(T)
 		}
 		if fn(value) {
-			return
+			return idx, value
 		}
 	}
 
-	idx = -1
-	return
+	var value T
+	return -1, value
 }
 
 func (this *List[T]) Select(filter ...func(idx int, ele T) bool) *List[T] {

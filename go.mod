@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/elgris/sqrl v0.0.0-20210727210741-7e0198b30236
 	github.com/emirpasic/gods v1.12.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-redis/redis/v8 v8.11.5
