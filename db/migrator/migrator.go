@@ -98,7 +98,7 @@ type Index interface {
 
 type Migrator interface {
 	Schema() string
-	Tables() (*klist.List[Table], error)
+	Tables(name ...string) (*klist.List[Table], error)
 	NewTable(tableName string) Table
 	DropTable(tableName string) error
 	HasTable(tableName string) (bool, error)

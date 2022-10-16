@@ -22,7 +22,7 @@ func (this *_migrator) Schema() string {
 	return this.tx.Migrator().CurrentDatabase()
 }
 
-func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
+func (this *_migrator) Tables(name ...string) (*klist.List[migrator.Table], error) {
 	if !this.tableFetched {
 		defer func() {
 			this.tableFetched = true
@@ -46,6 +46,9 @@ func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
 		sq := sqrl.Select("*", "obj_description(relfilenode,'pg_class') as comment").
 			From("pg_tables", "pg_class").
 			Where("pg_tables.tablename = pg_class.relname AND pg_tables.schemaname = ?", this.schema)
+		if len(name) > 0 {
+			sq = sq.Where("pg_tables.tablename IN ?", name)
+		}
 
 		query, args, err = sq.ToSql()
 		if err != nil {

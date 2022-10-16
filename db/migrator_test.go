@@ -47,6 +47,7 @@ func TestMigrator_Tables(t *testing.T) {
 	type args struct {
 		tx     *gorm.DB
 		schema []string
+		tables []string
 	}
 	tests := []struct {
 		name string
@@ -57,6 +58,7 @@ func TestMigrator_Tables(t *testing.T) {
 			args: args{
 				tx:     mysqlTX,
 				schema: []string{},
+				tables: []string{"activity"},
 			},
 		},
 		{
@@ -64,13 +66,14 @@ func TestMigrator_Tables(t *testing.T) {
 			args: args{
 				tx:     postgreTx,
 				schema: []string{"repository"},
+				tables: []string{"category"},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mig := Migrator(tt.args.tx, tt.args.schema...)
-			tables, err := mig.Tables()
+			tables, err := mig.Tables(tt.args.tables...)
 			if err != nil {
 				t.Error(err)
 				return

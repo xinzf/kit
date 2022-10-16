@@ -22,7 +22,7 @@ func (this *_migrator) Schema() string {
 	return this.tx.Migrator().CurrentDatabase()
 }
 
-func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
+func (this *_migrator) Tables(name ...string) (*klist.List[migrator.Table], error) {
 	if !this.tableFetched {
 		defer func() {
 			this.tableFetched = true
@@ -39,6 +39,9 @@ func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
 		sq := sqrl.Select("*").
 			From("information_schema.tables").
 			Where("TABLE_SCHEMA = ?", this.tx.Migrator().CurrentDatabase())
+		if len(name) > 0 {
+			sq = sq.Where("TABLE_NAME IN ?", name)
+		}
 
 		query, args, err = sq.ToSql()
 		if err != nil {
