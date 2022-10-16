@@ -81,7 +81,7 @@ type Column interface {
 	SetAutoIncrement(auto bool) Column
 	SetName(name string) Column
 	SetLength(length int) Column
-	SetDecimal(length, decimal int) Column
+	SetDecimal(length, scale int) Column
 	SetNull(nullAble bool) Column
 	SetDefaultValue(value any) Column
 	SetComment(comment string) Column

@@ -1,6 +1,9 @@
 package mysql
 
-import "github.com/xinzf/kit/db/migrator"
+import (
+	"fmt"
+	"github.com/xinzf/kit/db/migrator"
+)
 
 type Column struct {
 	ColumnName         string `json:"name"`
@@ -9,10 +12,8 @@ type Column struct {
 	IsPrimaryKey       bool   `json:"primaryKey"`
 	IsAutoIncrement    bool   `json:"autoIncrement"`
 	ColumnLength       int    `json:"length"`
-	Decimal            struct {
-		Length  int `json:"length"`
-		Decimal int `json:"decimal"`
-	} `json:"decimal"`
+	DecimalLength      int    `json:"decimalLength"`
+	DecimalScale       int    `json:"decimalScale"`
 	IsNullAble         bool   `json:"nullAble"`
 	ColumnDefaultValue any    `json:"defaultValue"`
 	ColumnComment      string `json:"comment"`
@@ -49,7 +50,7 @@ func (this *Column) Length() int {
 }
 
 func (this *Column) DecimalSize() (length, decimal int) {
-	return this.Decimal.Length, this.Decimal.Decimal
+	return this.DecimalLength, this.DecimalScale
 }
 
 func (this *Column) NullAble() bool {
@@ -70,8 +71,8 @@ func (this *Column) SetPrimaryKey() migrator.Column {
 }
 
 func (this *Column) SetAutoIncrement(auto bool) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.IsAutoIncrement = auto
+	return this
 }
 
 func (this *Column) SetName(name string) migrator.Column {
@@ -112,16 +113,33 @@ func (this *Column) clone() *Column {
 		IsPrimaryKey:       this.IsPrimaryKey,
 		IsAutoIncrement:    this.IsAutoIncrement,
 		ColumnLength:       this.ColumnLength,
-		Decimal: struct {
-			Length  int `json:"length"`
-			Decimal int `json:"decimal"`
-		}{
-			Length:  this.Decimal.Length,
-			Decimal: this.Decimal.Decimal,
-		},
+		DecimalLength:      this.DecimalLength,
+		DecimalScale:       this.DecimalScale,
 		IsNullAble:         this.IsNullAble,
 		ColumnDefaultValue: this.ColumnDefaultValue,
 		ColumnComment:      this.ColumnComment,
 		table:              this.table,
 	}
+}
+
+func (this *Column) toSQL() string {
+	sql := this.ColumnName + " " + this.FullColumnType()
+	if this.IsAutoIncrement {
+		sql += " auto_increment"
+	}
+
+	if this.ColumnDefaultValue != nil {
+		sql += fmt.Sprintf(" default %v", this.ColumnDefaultValue)
+	}
+
+	if this.IsNullAble {
+		sql += " null"
+	} else {
+		sql += " not null"
+	}
+	return sql
+
+	//if this.ColumnComment != "" {
+	//    sql += fmt.Sprintf(" comment '%s'", this.ColumnComment)
+	//}
 }

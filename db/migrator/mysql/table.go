@@ -73,8 +73,8 @@ func (this *Table) loadColumns() error {
 		}
 
 		if hasDecimal {
-			column.Decimal.Decimal = int(decimalDec)
-			column.Decimal.Length = int(decimalLen)
+			column.DecimalScale = int(decimalDec)
+			column.DecimalLength = int(decimalLen)
 		}
 		column.origin = column.clone()
 
@@ -160,10 +160,6 @@ func (this *Table) AddColumn(columnName string, ColumnType string) migrator.Colu
 		IsPrimaryKey:       false,
 		IsAutoIncrement:    false,
 		ColumnLength:       0,
-		Decimal: struct {
-			Length  int `json:"length"`
-			Decimal int `json:"decimal"`
-		}{},
 		IsNullAble:         false,
 		ColumnDefaultValue: nil,
 		ColumnComment:      "",

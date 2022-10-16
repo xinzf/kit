@@ -1,6 +1,10 @@
 package postgresql
 
-import "github.com/xinzf/kit/db/migrator"
+import (
+	"fmt"
+	"github.com/xinzf/kit/db/migrator"
+	"strings"
+)
 
 type Column struct {
 	ColumnName         string `json:"name"`
@@ -9,10 +13,8 @@ type Column struct {
 	IsPrimaryKey       bool   `json:"primaryKey"`
 	IsAutoIncrement    bool   `json:"autoIncrement"`
 	ColumnLength       int    `json:"length"`
-	Decimal            struct {
-		Length  int `json:"length"`
-		Decimal int `json:"decimal"`
-	} `json:"decimal"`
+	DecimalLength      int    `json:"decimalLength"`
+	DecimalScale       int    `json:"decimalScale"`
 	IsNullAble         bool   `json:"nullAble"`
 	ColumnDefaultValue any    `json:"defaultValue"`
 	ColumnComment      string `json:"comment"`
@@ -49,7 +51,7 @@ func (this *Column) Length() int {
 }
 
 func (this *Column) DecimalSize() (length, decimal int) {
-	return this.Decimal.Length, this.Decimal.Decimal
+	return this.DecimalLength, this.DecimalScale
 }
 
 func (this *Column) NullAble() bool {
@@ -66,42 +68,51 @@ func (this *Column) Comment() string {
 
 func (this *Column) SetPrimaryKey() migrator.Column {
 	this.IsPrimaryKey = true
+	this.generateFullColumnType()
 	return this
 }
 
 func (this *Column) SetAutoIncrement(auto bool) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.IsAutoIncrement = auto
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) SetName(name string) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.ColumnName = name
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) SetLength(length int) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.ColumnLength = length
+	this.generateFullColumnType()
+	return this
 }
 
-func (this *Column) SetDecimal(length, decimal int) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+func (this *Column) SetDecimal(length, scale int) migrator.Column {
+	this.DecimalLength = length
+	this.DecimalScale = scale
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) SetNull(nullAble bool) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.IsNullAble = nullAble
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) SetDefaultValue(value any) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.ColumnDefaultValue = value
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) SetComment(comment string) migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.ColumnComment = comment
+	this.generateFullColumnType()
+	return this
 }
 
 func (this *Column) clone() *Column {
@@ -112,16 +123,43 @@ func (this *Column) clone() *Column {
 		IsPrimaryKey:       this.IsPrimaryKey,
 		IsAutoIncrement:    this.IsAutoIncrement,
 		ColumnLength:       this.ColumnLength,
-		Decimal: struct {
-			Length  int `json:"length"`
-			Decimal int `json:"decimal"`
-		}{
-			Length:  this.Decimal.Length,
-			Decimal: this.Decimal.Decimal,
-		},
+		DecimalLength:      this.DecimalLength,
+		DecimalScale:       this.DecimalScale,
 		IsNullAble:         this.IsNullAble,
 		ColumnDefaultValue: this.ColumnDefaultValue,
 		ColumnComment:      this.ColumnComment,
 		table:              this.table,
+	}
+}
+
+func (this *Column) toSQL() string {
+	sql := this.ColumnName + " " + this.FullColumnType()
+
+	if this.ColumnDefaultValue != nil {
+		sql += fmt.Sprintf(" default %v", this.ColumnDefaultValue)
+	}
+
+	if this.IsNullAble {
+		sql += " null"
+	} else {
+		sql += " not null"
+	}
+	return sql
+}
+
+func (this *Column) generateFullColumnType() {
+	if this.AutoIncrement() {
+		this.ColumnDataType = "serial"
+		this.FullColumnDataType = this.ColumnDataType
+		return
+	}
+
+	switch strings.ToLower(this.ColumnDataType) {
+	case "varchar", "char":
+		this.FullColumnDataType = fmt.Sprintf("%s(%d)", this.ColumnDataType, this.ColumnLength)
+	case "numeric", "decimal":
+		this.FullColumnDataType = fmt.Sprintf("%s(%d,%d)", this.ColumnDataType, this.DecimalLength, this.DecimalScale)
+	default:
+		this.FullColumnDataType = this.ColumnDataType
 	}
 }

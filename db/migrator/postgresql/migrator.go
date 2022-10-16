@@ -8,7 +8,7 @@ import (
 )
 
 func New(tx *gorm.DB, schema string) migrator.Migrator {
-	return &_migrator{tx: tx, schema: schema}
+	return &_migrator{tx: tx, schema: schema, tables: []*Table{}}
 }
 
 type _migrator struct {
@@ -81,8 +81,14 @@ func (this *_migrator) Tables(name ...string) (*klist.List[migrator.Table], erro
 }
 
 func (this *_migrator) NewTable(tableName string) migrator.Table {
-	//TODO implement me
-	panic("implement me")
+	table := &Table{
+		TableName:    tableName,
+		TableColumns: []*Column{},
+		TableIndexes: []*Index{},
+		mig:          this,
+	}
+	this.tables = append(this.tables, table)
+	return table
 }
 
 func (this *_migrator) DropTable(tableName string) error {

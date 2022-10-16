@@ -1,6 +1,10 @@
 package postgresql
 
-import "github.com/xinzf/kit/db/migrator"
+import (
+	"fmt"
+	"github.com/xinzf/kit/db/migrator"
+	"strings"
+)
 
 type Index struct {
 	IndexName    string   `json:"name"`
@@ -35,13 +39,15 @@ func (this *Index) PrimaryKey() bool {
 }
 
 func (this *Index) SetUnique(unique bool) migrator.Index {
-	//TODO implement me
-	panic("implement me")
+	this.IsUnique = unique
+	this.generateName()
+	return this
 }
 
 func (this *Index) SetColumns(columns ...string) migrator.Index {
-	//TODO implement me
-	panic("implement me")
+	this.IndexColumns = columns
+	this.generateName()
+	return this
 }
 
 func (this *Index) clone() *Index {
@@ -51,4 +57,21 @@ func (this *Index) clone() *Index {
 		table:        this.table,
 		IsUnique:     this.IsUnique,
 	}
+}
+
+func (this *Index) generateName() {
+	idxTpe := "index"
+	if this.IsUnique {
+		idxTpe = "uindex"
+	}
+	this.IndexName = fmt.Sprintf("%s_%s_%s", this.table.Name(), strings.Join(this.IndexColumns, "_"), idxTpe)
+}
+
+func (this *Index) toSQL() string {
+	idxType := "index"
+	if this.IsUnique {
+		idxType = "unique index"
+	}
+	sql := fmt.Sprintf("create %s %s on %s (%s)", idxType, this.Name(), this.table.FullName(), strings.Join(this.IndexColumns, ","))
+	return sql
 }

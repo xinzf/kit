@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/xinzf/kit/container/kmap"
 	"github.com/xinzf/kit/db/migrator"
 	"github.com/xinzf/kit/klog"
 	"gorm.io/gorm"
@@ -132,4 +133,145 @@ func TestMigrator_Table_Columns(t *testing.T) {
 			klog.Args("columns", table.Columns().List()).Debug(tt.name)
 		})
 	}
+}
+
+func TestMigrator_Table_Indexes(t *testing.T) {
+	type args struct {
+		tx     *gorm.DB
+		schema []string
+		table  string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: MYSQL,
+			args: args{
+				tx:     mysqlTX,
+				schema: []string{},
+				table:  "ttt",
+			},
+		},
+		{
+			name: POSTGRESQL,
+			args: args{
+				tx:     postgreTx,
+				schema: []string{"repository"},
+				table:  "category",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mig := Migrator(tt.args.tx, tt.args.schema...)
+			tables, err := mig.Tables()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			_, table := tables.Find(func(tb migrator.Table) bool {
+				return tb.Name() == tt.args.table
+			})
+
+			if err := table.Describe(); err != nil {
+				t.Error(err)
+				return
+			}
+
+			klog.Args("indexes", table.Indexes().List()).Debug(tt.name)
+		})
+	}
+}
+
+func TestMigrator_NewTable(t *testing.T) {
+	type args struct {
+		tx     *gorm.DB
+		schema []string
+		table  string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: MYSQL,
+			args: args{
+				tx:     mysqlTX,
+				schema: []string{},
+				table:  "ttt",
+			},
+		},
+		{
+			name: POSTGRESQL,
+			args: args{
+				tx:     postgreTx,
+				schema: []string{"repository"},
+				table:  "ttt",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mig := Migrator(tt.args.tx, tt.args.schema...)
+			table := mig.NewTable(tt.args.table)
+			table.SetComment("这是描述")
+			table.AddColumn("id", "int").
+				SetPrimaryKey().
+				SetAutoIncrement(true)
+
+			table.AddColumn("name", "varchar").
+				SetNull(false).
+				SetLength(30).
+				SetComment("姓名")
+
+			table.AddColumn("password", "varchar").
+				SetLength(32).
+				SetComment("密码")
+
+			table.AddIndex("name", "password").SetUnique(true)
+
+			if err := table.Save(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+//
+//func TestGormCreateTable(t *testing.T) {
+//    tpl := `CREATE TABLE %s
+//(
+//    %s
+//)`
+//
+//    for i, i2 := range collection {
+//
+//    }
+//
+//    sql := `create table repository.table_name
+//(
+//    id serial
+//        constraint table_name_pk
+//            primary key
+//);
+//
+//`
+//    err := postgreTx.Exec(sql).Error
+//    if err != nil {
+//        t.Error(err)
+//    }
+//    //postgreTx.Migrator().CreateTable(new(App))
+//}
+
+type App struct {
+	ID            string                 `gorm:"column:id;primaryKey" json:"id"`              // 子应用ID
+	Platform      string                 `gorm:"column:platform" json:"platform"`             // 平台类型
+	ApplicationID string                 `gorm:"column:application_id" json:"application_id"` // 应用ID
+	Config        *kmap.Map[string, any] `gorm:"column:config" json:"config"`
+}
+
+func (*App) TableName() string {
+	return "test_app"
 }
