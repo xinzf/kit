@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
+	"reflect"
 	"strings"
 )
 
@@ -435,4 +436,17 @@ func (s List[T]) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	}
 
 	return gorm.Expr("?", string(data))
+}
+
+func (this *List[T]) Convert(target any) error {
+	if reflect.Indirect(reflect.ValueOf(target)).Kind() != reflect.Pointer {
+		return errors.New("convert failed, target must be a pointer")
+	}
+
+	btes, err := this.list.ToJSON()
+	if err != nil {
+		return err
+	}
+
+	return jsoniter.Unmarshal(btes, target)
 }

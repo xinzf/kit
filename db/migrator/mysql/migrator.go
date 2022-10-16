@@ -1,39 +1,68 @@
 package mysql
 
 import (
-	"fmt"
+	"github.com/elgris/sqrl"
 	"github.com/xinzf/kit/container/klist"
 	"github.com/xinzf/kit/container/kvar"
 	"github.com/xinzf/kit/db/migrator"
 	"gorm.io/gorm"
-	"strings"
 )
 
-func Migrator(tx *gorm.DB, schema string) migrator.Migrator {
-	return &_migrator{tx: tx, schema: schema, tables: []*Table{}}
+func New(tx *gorm.DB) migrator.Migrator {
+	return &_migrator{tx: tx}
 }
 
 type _migrator struct {
-	tx            *gorm.DB
-	schema        string
-	tablesFetched bool
-	tables        []*Table
+	tx           *gorm.DB
+	tables       []*Table
+	tableFetched bool
 }
 
 func (this *_migrator) Schema() string {
-	return this.schema
+	return this.tx.Migrator().CurrentDatabase()
 }
 
 func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
-	var err error
-	if !this.tablesFetched {
+	if !this.tableFetched {
 		defer func() {
-			this.tablesFetched = true
+			this.tableFetched = true
 		}()
 
-		this.tables, err = this.loadTables()
+		this.tables = []*Table{}
+
+		var (
+			query string
+			args  []any
+			err   error
+		)
+
+		sq := sqrl.Select("*").
+			From("information_schema.tables").
+			Where("TABLE_SCHEMA = ?", this.tx.Migrator().CurrentDatabase())
+
+		query, args, err = sq.ToSql()
 		if err != nil {
 			return nil, err
+		}
+
+		mp := make([]map[string]any, 0)
+		err = this.tx.Raw(query, args...).Find(&mp).Error
+		if err != nil {
+			return nil, err
+		}
+
+		for _, t := range mp {
+			name := kvar.New(t["TABLE_NAME"]).String()
+			_table := &Table{
+				mig:          this,
+				TableName:    name,
+				TableComment: kvar.New(t["TABLE_COMMENT"]).String(),
+				TableColumns: []*Column{},
+				TableIndexes: []*Index{},
+			}
+
+			_table.origin = _table.clone()
+			this.tables = append(this.tables, _table)
 		}
 	}
 
@@ -45,95 +74,21 @@ func (this *_migrator) Tables() (*klist.List[migrator.Table], error) {
 }
 
 func (this *_migrator) NewTable(tableName string) migrator.Table {
-	return &Table{
-		mig:          this,
-		TableName:    tableName,
-		TableEngine:  "InnoDB",
-		TableUnicode: "utf8mb4_0900_ai_ci",
-		TableColumns: []*Column{},
-		TableIndexes: []*Index{},
-		Tx:           this.tx,
-		alters:       klist.New[tableAlter](),
-		isNew:        true,
-	}
+	//TODO implement me
+	panic("implement me")
 }
 
 func (this *_migrator) DropTable(tableName string) error {
-	sql := fmt.Sprintf("drop table if exists `%s`.%s cascade", this.schema, tableName)
-	return this.tx.Exec(sql).Error
+	//TODO implement me
+	panic("implement me")
 }
 
 func (this *_migrator) HasTable(tableName string) (bool, error) {
-	_, err := this.Tables()
-	if err != nil {
-		return false, err
-	}
-	for _, table := range this.tables {
-		if table.TableName == tableName {
-			return true, nil
-		}
-	}
-	return false, nil
+	//TODO implement me
+	panic("implement me")
 }
 
 func (this *_migrator) RenameTable(oldName, newName string) error {
-	if oldName == newName {
-		return nil
-	}
-	_, err := this.Tables()
-	if err != nil {
-		return err
-	}
-
-	var table *Table
-	for _, tb := range this.tables {
-		if tb.TableName == oldName {
-			table = tb
-			break
-		}
-	}
-	if table == nil {
-		return fmt.Errorf("Not found table: %s\n", oldName)
-	}
-
-	return table.SetName(newName).Save()
-}
-
-func (this *_migrator) loadTables(tableNames ...string) ([]*Table, error) {
-	query := fmt.Sprintf("SELECT * FROM information_schema.tables WHERE TABLE_SCHEMA = '%s'", this.schema)
-	if tableNames != nil && len(tableNames) > 0 {
-		names := ""
-		for _, name := range tableNames {
-			names += fmt.Sprintf("'%s',", name)
-		}
-		names = strings.TrimRight(names, ",")
-		query += fmt.Sprintf(" AND TABLE_NAME in (%s)", names)
-	}
-
-	mp := make([]map[string]any, 0)
-	err := this.tx.Raw(query).Find(&mp).Error
-	if err != nil {
-		return nil, err
-	}
-
-	var list = make([]*Table, 0)
-	for _, t := range mp {
-		name := kvar.New(t["TABLE_NAME"]).String()
-		_table := &Table{
-			mig:          this,
-			TableName:    name,
-			TableComment: kvar.New(t["TABLE_COMMENT"]).String(),
-			TableEngine:  kvar.New(t["ENGINE"]).String(),
-			TableCreated: kvar.New(t["CREATE_TIME"]).Time(),
-			TableUpdated: kvar.New(t["UPDATE_TIME"]).Time(),
-			TableUnicode: kvar.New(t["TABLE_COLLATION"]).String(),
-			TableColumns: []*Column{},
-			TableIndexes: []*Index{},
-			Tx:           this.tx,
-			alters:       klist.New[tableAlter](),
-		}
-		list = append(list, _table)
-	}
-
-	return list, nil
+	//TODO implement me
+	panic("implement me")
 }

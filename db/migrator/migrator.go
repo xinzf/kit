@@ -2,67 +2,62 @@ package migrator
 
 import (
 	"github.com/xinzf/kit/container/klist"
-	"time"
 )
 
-type DatabaseType string
-
-const (
-	BIT               DatabaseType = "bit"
-	BLOB              DatabaseType = "blob"
-	DATE              DatabaseType = "date"
-	DATETIME          DatabaseType = "datetime"
-	DECIMAL           DatabaseType = "decimal"
-	DOUBLE            DatabaseType = "double"
-	ENUM              DatabaseType = "enum"
-	FLOAT             DatabaseType = "float"
-	GEOMETRY          DatabaseType = "geometry"
-	MEDIUMINT         DatabaseType = "mediumint"
-	JSON              DatabaseType = "json"
-	INT               DatabaseType = "int"
-	LONGTEXT          DatabaseType = "longtext"
-	LONGBLOB          DatabaseType = "longblob"
-	BIGINT            DatabaseType = "bigint"
-	MEDIUMBLOB        DatabaseType = "mediumblob"
-	SET               DatabaseType = "set"
-	SMALLINT          DatabaseType = "smallint"
-	CHAR              DatabaseType = "char"
-	TIME              DatabaseType = "time"
-	TIMESTAMP         DatabaseType = "timestamp"
-	TINYINT           DatabaseType = "tinyint"
-	TINYBLOB          DatabaseType = "tinyblob"
-	VARCHAR           DatabaseType = "varchar"
-	YEAR              DatabaseType = "year"    // mysql end
-	INTEGER           DatabaseType = "integer" // postgresql start
-	NUMERIC           DatabaseType = "numeric"
-	REAL              DatabaseType = "real"
-	DOUBLE_PRECISION  DatabaseType = "double precision"
-	SMALLSERIAL       DatabaseType = "smallserial"
-	SERIAL            DatabaseType = "serial"
-	BIGSERIAL         DatabaseType = "bigserial"
-	MONEY             DatabaseType = "money"
-	CHARACTER_VARYING DatabaseType = "character varying"
-	CHARACTER         DatabaseType = "character"
-	TEXT              DatabaseType = "text"
-	TIMESTAMPTZ       DatabaseType = "timestamptz"
-)
+//
+//type ColumnType string
+//
+//const (
+//    BIT               ColumnType = "bit"
+//    BLOB              ColumnType = "blob"
+//    DATE              ColumnType = "date"
+//    DATETIME          ColumnType = "datetime"
+//    DECIMAL           ColumnType = "decimal"
+//    DOUBLE            ColumnType = "double"
+//    ENUM              ColumnType = "enum"
+//    FLOAT             ColumnType = "float"
+//    GEOMETRY          ColumnType = "geometry"
+//    MEDIUMINT         ColumnType = "mediumint"
+//    JSON              ColumnType = "json"
+//    INT               ColumnType = "int"
+//    LONGTEXT          ColumnType = "longtext"
+//    LONGBLOB          ColumnType = "longblob"
+//    BIGINT            ColumnType = "bigint"
+//    MEDIUMBLOB        ColumnType = "mediumblob"
+//    SET               ColumnType = "set"
+//    SMALLINT          ColumnType = "smallint"
+//    CHAR              ColumnType = "char"
+//    TIME              ColumnType = "time"
+//    TIMESTAMP         ColumnType = "timestamp"
+//    TINYINT           ColumnType = "tinyint"
+//    TINYBLOB          ColumnType = "tinyblob"
+//    VARCHAR           ColumnType = "varchar"
+//    YEAR              ColumnType = "year"    // mysql end
+//    INTEGER           ColumnType = "integer" // postgresql start
+//    NUMERIC           ColumnType = "numeric"
+//    REAL              ColumnType = "real"
+//    DOUBLE_PRECISION  ColumnType = "double precision"
+//    SMALLSERIAL       ColumnType = "smallserial"
+//    SERIAL            ColumnType = "serial"
+//    BIGSERIAL         ColumnType = "bigserial"
+//    MONEY             ColumnType = "money"
+//    CHARACTER_VARYING ColumnType = "character varying"
+//    CHARACTER         ColumnType = "character"
+//    TEXT              ColumnType = "text"
+//    TIMESTAMPTZ       ColumnType = "timestamptz"
+//)
 
 type Table interface {
 	Name() string
 	FullName() string
 	Comment() string
-	Engine() string
-	CreateTime() time.Time
-	UpdateTime() time.Time
-	Collation() string
 	Columns() (*klist.List[Column], error)
 	Indexes() (*klist.List[Index], error)
 	SetName(name string) Table
 	SetComment(comment string) Table
-	AddColumn(columnName string, databaseType DatabaseType) Column
+	AddColumn(columnName string, ColumnType string) Column
 	DropColumn(columnName ...string) Table
 	HasColumn(columnName string) (bool, error)
-	RenameColumn(oldName, newName string) Table
 	AddIndex(columnNames ...string) Index
 	DropIndex(indexName ...string) Table
 	HasIndex(name string) (bool, error)
@@ -72,21 +67,20 @@ type Table interface {
 type Column interface {
 	Name() string
 	Table() Table
-	ColumnType() string         // varchar(255)
-	DatabaseType() DatabaseType // varchar
+	FullColumnType() string // varchar(255)
+	ColumnType() string     // varchar
 	PrimaryKey() bool
 	AutoIncrement() bool
 	Length() int
-	Decimal() int
+	DecimalSize() (length, decimal int)
 	NullAble() bool
 	DefaultValue() any
-	Generated() string
 	Comment() string
 	SetPrimaryKey() Column
 	SetAutoIncrement(auto bool) Column
 	SetName(name string) Column
 	SetLength(length int) Column
-	SetDecimal(decimal int) Column
+	SetDecimal(length, decimal int) Column
 	SetNull(nullAble bool) Column
 	SetDefaultValue(value any) Column
 	SetComment(comment string) Column
@@ -97,6 +91,7 @@ type Index interface {
 	Name() string
 	Columns() []string
 	Unique() bool
+	PrimaryKey() bool
 	SetUnique(unique bool) Index
 	SetColumns(columns ...string) Index
 }

@@ -4,26 +4,17 @@ import (
 	"fmt"
 	"github.com/xinzf/kit/container/klist"
 	"github.com/xinzf/kit/db/migrator"
-	"gorm.io/gorm"
-	"strings"
-	"time"
 )
 
 type Table struct {
-	mig             *_migrator
-	TableName       string    `json:"name"`
-	TableComment    string    `json:"comment"`
-	TableCreated    time.Time `json:"created"`
-	TableUpdated    time.Time `json:"updated"`
-	TableUnicode    string    `json:"unicode"`
-	TableColumns    []*Column `json:"columns"`
-	TableIndexes    []*Index  `json:"indexes"`
-	Tx              *gorm.DB  `json:"-"`
-	alters          *klist.List[tableAlter]
-	newTableName    string
-	isNew           bool
-	hasFetchColumns bool
-	hasFetchIndex   bool
+	TableName      string     `json:"name"`
+	TableComment   string     `json:"comment"`
+	TableColumns   []*Column  `json:"columns"`
+	TableIndexes   []*Index   `json:"indexes"`
+	mig            *_migrator `json:"-"`
+	origin         *Table     `json:"-"`
+	columnsFetched bool
+	indexesFetched bool
 }
 
 func (this *Table) Name() string {
@@ -38,62 +29,47 @@ func (this *Table) Comment() string {
 	return this.TableComment
 }
 
-func (this *Table) Engine() string {
-	return ""
-}
-
-func (this *Table) CreateTime() time.Time {
-	return this.TableCreated
-}
-
-func (this *Table) UpdateTime() time.Time {
-	return this.TableUpdated
-}
-
-func (this *Table) Collation() string {
-	return ""
-}
-
 func (this *Table) Columns() (*klist.List[migrator.Column], error) {
-	if !this.hasFetchColumns {
-		tableColumns, err := this.Tx.Migrator().ColumnTypes(this.FullName())
+
+	if !this.columnsFetched {
+		defer func() {
+			this.columnsFetched = true
+		}()
+
+		this.TableColumns = []*Column{}
+		cols, err := this.mig.tx.Migrator().ColumnTypes(this.FullName())
 		if err != nil {
 			return nil, err
 		}
-		for _, column := range tableColumns {
-			comment, _ := column.Comment()
 
-			columnType, _ := column.ColumnType()
-
-			isPk, _ := column.PrimaryKey()
-
-			isAutoIncre, _ := column.AutoIncrement()
-
-			length, _ := column.Length()
-
-			_len, decimal, ok := column.DecimalSize()
-			if ok {
-				length = _len
+		for _, col := range cols {
+			tpe, _ := col.ColumnType()
+			pk, _ := col.PrimaryKey()
+			auto, _ := col.AutoIncrement()
+			length, _ := col.Length()
+			decimalLen, decimalDec, hasDecimal := col.DecimalSize()
+			nullAble, _ := col.Nullable()
+			dft, _ := col.DefaultValue()
+			com, _ := col.Comment()
+			column := &Column{
+				ColumnName:         col.Name(),
+				FullColumnDataType: tpe,
+				ColumnDataType:     col.DatabaseTypeName(),
+				IsPrimaryKey:       pk,
+				IsAutoIncrement:    auto,
+				ColumnLength:       int(length),
+				IsNullAble:         nullAble,
+				ColumnDefaultValue: dft,
+				ColumnComment:      com,
+				table:              this,
 			}
+			if hasDecimal {
+				column.Decimal.Decimal = int(decimalDec)
+				column.Decimal.Length = int(decimalLen)
+			}
+			column.origin = column.clone()
 
-			isNull, _ := column.Nullable()
-
-			defaultVal, _ := column.DefaultValue()
-
-			this.TableColumns = append(this.TableColumns, &Column{
-				ColumnName:          column.Name(),
-				ColumnDatabaseType:  column.DatabaseTypeName(),
-				ColumnFullType:      columnType,
-				IsPrimaryKey:        isPk,
-				IsAutoIncrement:     isAutoIncre,
-				ColumnLength:        int(length),
-				ColumnDecimal:       int(decimal),
-				IsNullAble:          isNull,
-				ColumnDefaultValue:  defaultVal,
-				GeneratedExpression: "",
-				ColumnComment:       comment,
-				table:               this,
-			})
+			this.TableColumns = append(this.TableColumns, column)
 		}
 	}
 
@@ -105,8 +81,50 @@ func (this *Table) Columns() (*klist.List[migrator.Column], error) {
 }
 
 func (this *Table) Indexes() (*klist.List[migrator.Index], error) {
-	//TODO implement me
-	panic("implement me")
+	if !this.indexesFetched {
+		defer func() {
+			this.indexesFetched = true
+		}()
+
+		this.TableIndexes = []*Index{}
+
+		idxes, err := this.mig.tx.Migrator().GetIndexes(this.FullName())
+		if err != nil {
+			return nil, err
+		}
+
+		for _, idx := range idxes {
+			unique, _ := idx.Unique()
+			pk, _ := idx.PrimaryKey()
+			if pk {
+				col := idx.Columns()[0]
+				for _, _col := range this.TableColumns {
+					if _col.Name() == col {
+						_col.SetPrimaryKey()
+						break
+					}
+				}
+			}
+
+			_index := &Index{
+				IndexName:    idx.Name(),
+				IndexColumns: idx.Columns(),
+				table:        this,
+				IsUnique:     unique,
+				IsPK:         pk,
+			}
+
+			_index.origin = _index.clone()
+
+			this.TableIndexes = append(this.TableIndexes, _index)
+		}
+	}
+
+	indexes := klist.New[migrator.Index]()
+	for _, index := range this.TableIndexes {
+		indexes.Add(index)
+	}
+	return indexes, nil
 }
 
 func (this *Table) SetName(name string) migrator.Table {
@@ -119,7 +137,7 @@ func (this *Table) SetComment(comment string) migrator.Table {
 	panic("implement me")
 }
 
-func (this *Table) AddColumn(columnName string, databaseType migrator.DatabaseType) migrator.Column {
+func (this *Table) AddColumn(columnName string, ColumnType string) migrator.Column {
 	//TODO implement me
 	panic("implement me")
 }
@@ -130,11 +148,6 @@ func (this *Table) DropColumn(columnName ...string) migrator.Table {
 }
 
 func (this *Table) HasColumn(columnName string) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (this *Table) RenameColumn(oldName, newName string) migrator.Table {
 	//TODO implement me
 	panic("implement me")
 }
@@ -159,149 +172,30 @@ func (this *Table) Save() error {
 	panic("implement me")
 }
 
-type tableAlter interface {
-	toSQL() string
-	name() string
-}
-
-type renameTableName struct {
-	newName string
-}
-
-func (this *renameTableName) name() string {
-	return "tableName"
-}
-
-func (this *renameTableName) toSQL() string {
-	return fmt.Sprintf("RENAME TO %s", this.newName)
-}
-
-type commentTable struct {
-	comment string
-}
-
-func (this *commentTable) name() string {
-	return "tableComment"
-}
-
-func (this *commentTable) toSQL() string {
-	return fmt.Sprintf("COMMENT '%s'", this.comment)
-}
-
-type newColumn struct {
-	column *Column
-}
-
-func (this *newColumn) name() string {
-	return "newColumn"
-}
-
-func (this *newColumn) toSQL() string {
-	sql := this.column.ColumnName + " " + this.column.ColumnType()
-	if this.column.IsAutoIncrement {
-		sql += " auto_increment"
-	}
-	if this.column.IsPrimaryKey {
-		sql += " primary key"
+func (this *Table) clone() *Table {
+	columns := make([]*Column, 0, len(this.TableColumns))
+	{
+		for _, column := range this.TableColumns {
+			columns = append(columns, column.clone())
+		}
 	}
 
-	if this.column.ColumnDefaultValue != nil {
-		sql += fmt.Sprintf(" default %v", this.column.ColumnDefaultValue)
+	indexes := make([]*Index, 0, len(this.TableIndexes))
+	{
+		for _, index := range this.TableIndexes {
+			indexes = append(indexes, index.clone())
+		}
+	}
+	table := &Table{
+		TableName:      this.TableName,
+		TableComment:   this.TableComment,
+		TableColumns:   columns,
+		TableIndexes:   indexes,
+		mig:            this.mig,
+		origin:         nil,
+		columnsFetched: this.columnsFetched,
+		indexesFetched: this.indexesFetched,
 	}
 
-	if this.column.IsNullAble {
-		sql += " null"
-	} else {
-		sql += " not null"
-	}
-
-	if this.column.ColumnComment != "" {
-		sql += fmt.Sprintf(" comment '%s'", this.column.ColumnComment)
-	}
-	return sql
-}
-
-type modifyColumn struct {
-	column *Column
-}
-
-func (this *modifyColumn) toSQL() string {
-	originName := this.column.ColumnName
-	if this.column.originName != "" {
-		originName = this.column.originName
-	}
-	sql := fmt.Sprintf("change %s %s %s", originName, this.column.ColumnName, this.column.ColumnFullType)
-
-	if this.column.ColumnDefaultValue != nil {
-		sql += fmt.Sprintf(" default %v", this.column.ColumnDefaultValue)
-	}
-
-	if this.column.IsNullAble {
-		sql += " null"
-	} else {
-		sql += " not null"
-	}
-
-	sql += fmt.Sprintf(" comment '%s'", this.column.ColumnComment)
-	return sql
-}
-
-func (this *modifyColumn) name() string {
-	return "modifyColumn"
-}
-
-type dropColumn struct {
-	columnName string
-}
-
-func (this *dropColumn) name() string {
-	return "dropColumn"
-}
-
-func (this *dropColumn) toSQL() string {
-	return fmt.Sprintf("DROP %s", this.columnName)
-}
-
-type newIndex struct {
-	index *Index
-}
-
-func (this *newIndex) name() string {
-	return "newIndex"
-}
-
-func (this *newIndex) toSQL() string {
-	columns := strings.Join(this.index.ContainColumns, ", ")
-	sql := ""
-	if this.index.IsUnique {
-		sql = fmt.Sprintf("unique index %s (%s)", this.index.IndexName, columns)
-	} else {
-		sql = fmt.Sprintf("index %s (%s)", this.index.IndexName, columns)
-	}
-	return sql
-}
-
-type modifyIndex struct {
-	index *Index
-}
-
-func (this *modifyIndex) toSQL() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (this *modifyIndex) name() string {
-	return "modifyIndex"
-}
-
-type dropIndex struct {
-	indexName string
-}
-
-func (this *dropIndex) name() string {
-	return "dropIndex"
-}
-
-func (this *dropIndex) toSQL() string {
-	return fmt.Sprintf("drop index %s", this.indexName)
+	return table
 }
