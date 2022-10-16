@@ -1,6 +1,10 @@
 package mysql
 
-import "github.com/xinzf/kit/db/migrator"
+import (
+	"fmt"
+	"github.com/xinzf/kit/db/migrator"
+	"strings"
+)
 
 type Index struct {
 	IndexName    string   `json:"name"`
@@ -50,5 +54,14 @@ func (this *Index) clone() *Index {
 		IndexColumns: this.IndexColumns,
 		table:        this.table,
 		IsUnique:     this.IsUnique,
+	}
+}
+
+func (this *Index) generateName() {
+	str := strings.Join(this.IndexColumns, "_")
+	if !this.IsUnique {
+		this.IndexName = fmt.Sprintf("%s_%s_index", this.table.TableName, str)
+	} else {
+		this.IndexName = fmt.Sprintf("%s_%s_uindex", this.table.TableName, str)
 	}
 }

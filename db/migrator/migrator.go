@@ -48,19 +48,20 @@ import (
 //)
 
 type Table interface {
+	Describe() error
 	Name() string
 	FullName() string
 	Comment() string
-	Columns() (*klist.List[Column], error)
-	Indexes() (*klist.List[Index], error)
+	Columns() *klist.List[Column]
+	Indexes() *klist.List[Index]
 	SetName(name string) Table
 	SetComment(comment string) Table
 	AddColumn(columnName string, ColumnType string) Column
 	DropColumn(columnName ...string) Table
-	HasColumn(columnName string) (bool, error)
+	HasColumn(columnName string) bool
 	AddIndex(columnNames ...string) Index
 	DropIndex(indexName ...string) Table
-	HasIndex(name string) (bool, error)
+	HasIndex(name string) bool
 	Save() error
 }
 

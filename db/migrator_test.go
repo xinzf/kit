@@ -123,13 +123,13 @@ func TestMigrator_Table_Columns(t *testing.T) {
 			_, table := tables.Find(func(tb migrator.Table) bool {
 				return tb.Name() == tt.args.table
 			})
-			columns, err := table.Columns()
-			if err != nil {
+
+			if err := table.Describe(); err != nil {
 				t.Error(err)
 				return
 			}
 
-			klog.Args("columns", columns.List()).Debug(tt.name)
+			klog.Args("columns", table.Columns().List()).Debug(tt.name)
 		})
 	}
 }

@@ -65,8 +65,8 @@ func (this *Column) Comment() string {
 }
 
 func (this *Column) SetPrimaryKey() migrator.Column {
-	//TODO implement me
-	panic("implement me")
+	this.IsPrimaryKey = true
+	return this
 }
 
 func (this *Column) SetAutoIncrement(auto bool) migrator.Column {
