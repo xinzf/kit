@@ -1,7 +1,6 @@
 package db
 
 import (
-	"github.com/xinzf/kit/container/kmap"
 	"github.com/xinzf/kit/db/migrator"
 	"github.com/xinzf/kit/klog"
 	"gorm.io/gorm"
@@ -318,39 +317,42 @@ func TestMigrator_UpdateTable(t *testing.T) {
 	}
 }
 
-//
-//func TestGormCreateTable(t *testing.T) {
-//    tpl := `CREATE TABLE %s
-//(
-//    %s
-//)`
-//
-//    for i, i2 := range collection {
-//
-//    }
-//
-//    sql := `create table repository.table_name
-//(
-//    id serial
-//        constraint table_name_pk
-//            primary key
-//);
-//
-//`
-//    err := postgreTx.Exec(sql).Error
-//    if err != nil {
-//        t.Error(err)
-//    }
-//    //postgreTx.Migrator().CreateTable(new(App))
-//}
-
-type App struct {
-	ID            string                 `gorm:"column:id;primaryKey" json:"id"`              // 子应用ID
-	Platform      string                 `gorm:"column:platform" json:"platform"`             // 平台类型
-	ApplicationID string                 `gorm:"column:application_id" json:"application_id"` // 应用ID
-	Config        *kmap.Map[string, any] `gorm:"column:config" json:"config"`
-}
-
-func (*App) TableName() string {
-	return "test_app"
+func TestMigrator_HasTable(t *testing.T) {
+	type args struct {
+		tx     *gorm.DB
+		schema []string
+		table  string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: MYSQL,
+			args: args{
+				tx:     mysqlTX,
+				schema: []string{},
+				table:  "ttt",
+			},
+		},
+		{
+			name: POSTGRESQL,
+			args: args{
+				tx:     postgreTx,
+				schema: []string{"repository"},
+				table:  "tt",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mig := Migrator(tt.args.tx, tt.args.schema...)
+			has, err := mig.HasTable(tt.args.table)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			klog.Args("has", has).Debug(tt.name)
+		})
+	}
 }
