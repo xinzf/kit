@@ -46,13 +46,14 @@ import (
 //    TEXT              ColumnType = "text"
 //    TIMESTAMPTZ       ColumnType = "timestamptz"
 //)
-
+//
 type Table interface {
 	Describe() error
 	Name() string
 	FullName() string
 	Comment() string
 	Columns() *klist.List[Column]
+	GetColumn(name string) (Column, bool)
 	Indexes() *klist.List[Index]
 	SetName(name string) Table
 	SetComment(comment string) Table
@@ -104,4 +105,8 @@ type Migrator interface {
 	DropTable(tableName string) error
 	HasTable(tableName string) (bool, error)
 	RenameTable(oldName, newName string) error
+}
+
+type Alter interface {
+	ToSQL() string
 }

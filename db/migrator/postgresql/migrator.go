@@ -67,6 +67,7 @@ func (this *_migrator) Tables(name ...string) (*klist.List[migrator.Table], erro
 				TableColumns: []*Column{},
 				TableIndexes: []*Index{},
 				mig:          this,
+				dropColumns:  []*Column{},
 			}
 			_table.origin = _table.clone()
 			this.tables = append(this.tables, _table)

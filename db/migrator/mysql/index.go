@@ -39,13 +39,15 @@ func (this *Index) PrimaryKey() bool {
 }
 
 func (this *Index) SetUnique(unique bool) migrator.Index {
-	//TODO implement me
-	panic("implement me")
+	this.IsUnique = unique
+	this.generateName()
+	return this
 }
 
 func (this *Index) SetColumns(columns ...string) migrator.Index {
-	//TODO implement me
-	panic("implement me")
+	this.IndexColumns = columns
+	this.generateName()
+	return this
 }
 
 func (this *Index) clone() *Index {

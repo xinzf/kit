@@ -15,6 +15,7 @@ type Table struct {
 	TableIndexes []*Index   `json:"indexes"`
 	mig          *_migrator `json:"-"`
 	origin       *Table     `json:"-"`
+	dropColumns  []*Column  `json:"-"`
 	hasDescribe  bool
 }
 
@@ -46,7 +47,6 @@ func (this *Table) Comment() string {
 }
 
 func (this *Table) loadColumns() error {
-
 	this.TableColumns = []*Column{}
 	cols, err := this.mig.tx.Migrator().ColumnTypes(this.FullName())
 	if err != nil {
@@ -55,6 +55,7 @@ func (this *Table) loadColumns() error {
 
 	for _, col := range cols {
 		tpe, _ := col.ColumnType()
+
 		pk, _ := col.PrimaryKey()
 		auto, _ := col.AutoIncrement()
 		length, _ := col.Length()
@@ -78,6 +79,8 @@ func (this *Table) loadColumns() error {
 			column.DecimalScale = int(decimalDec)
 			column.DecimalLength = int(decimalLen)
 		}
+
+		column.generateFullColumnType()
 		column.origin = column.clone()
 
 		this.TableColumns = append(this.TableColumns, column)
@@ -95,6 +98,17 @@ func (this *Table) Columns() *klist.List[migrator.Column] {
 		columns.Add(column)
 	}
 	return columns
+}
+
+func (this *Table) GetColumn(name string) (migrator.Column, bool) {
+	idx, column := this.Columns().Find(func(col migrator.Column) bool {
+		return col.Name() == name
+	})
+	if idx == -1 {
+		return nil, false
+	}
+
+	return column, true
 }
 
 func (this *Table) loadIndexes() error {
@@ -127,6 +141,7 @@ func (this *Table) loadIndexes() error {
 			IsPK:         pk,
 		}
 
+		_index.generateName()
 		_index.origin = _index.clone()
 
 		this.TableIndexes = append(this.TableIndexes, _index)
@@ -140,6 +155,9 @@ func (this *Table) Indexes() *klist.List[migrator.Index] {
 	}
 	indexes := klist.New[migrator.Index]()
 	for _, index := range this.TableIndexes {
+		if index.deleted {
+			continue
+		}
 		indexes.Add(index)
 	}
 	return indexes
@@ -173,7 +191,7 @@ func (this *Table) AddColumn(columnName string, ColumnType string) migrator.Colu
 	}
 
 	switch strings.ToLower(ColumnType) {
-	case "varchar", "char":
+	case "varchar", "char", "character", "varying":
 		column.SetLength(500)
 	case "numeric", "decimal":
 		column.SetDecimal(13, 2)
@@ -184,13 +202,25 @@ func (this *Table) AddColumn(columnName string, ColumnType string) migrator.Colu
 }
 
 func (this *Table) DropColumn(columnName ...string) migrator.Table {
-	//TODO implement me
-	panic("implement me")
+	columns := []*Column{}
+	for _, name := range columnName {
+		for _, column := range this.TableColumns {
+			if column.ColumnName == name {
+				column.deleted = true
+			} else {
+				columns = append(columns, column)
+			}
+		}
+	}
+	this.TableColumns = columns
+	return this
 }
 
 func (this *Table) HasColumn(columnName string) bool {
-	//TODO implement me
-	panic("implement me")
+	idx, _ := this.Columns().Find(func(col migrator.Column) bool {
+		return col.Name() == columnName
+	})
+	return idx != -1
 }
 
 func (this *Table) AddIndex(columnNames ...string) migrator.Index {
@@ -221,9 +251,7 @@ func (this *Table) Save() error {
 	if this.origin == nil {
 		return this.create()
 	}
-	return nil
-	//TODO implement me
-	panic("implement me")
+	return this.update()
 }
 
 func (this *Table) create() error {
@@ -232,7 +260,7 @@ func (this *Table) create() error {
 		sql := fmt.Sprintf("CREATE TABLE %s", this.FullName())
 		columnsQuery := make([]string, 0)
 		for _, column := range this.TableColumns {
-			columnsQuery = append(columnsQuery, column.toSQL())
+			columnsQuery = append(columnsQuery, column.createSQL())
 		}
 
 		pkColumns := make([]string, 0)
@@ -282,6 +310,56 @@ func (this *Table) create() error {
 	})
 }
 
+func (this *Table) update() error {
+	transactions := make([]func(tx *gorm.DB) error, 0)
+	generateTransaction := func(sql string) func(tx *gorm.DB) error {
+		return func(tx *gorm.DB) error {
+			return tx.Exec(sql).Error
+		}
+	}
+
+	for _, column := range this.dropColumns {
+		for _, query := range column.alterSqls() {
+			transactions = append(transactions, generateTransaction(query))
+		}
+	}
+
+	for _, column := range this.TableColumns {
+		for _, query := range column.alterSqls() {
+			transactions = append(transactions, generateTransaction(query))
+		}
+	}
+
+	if this.TableComment != this.origin.TableComment {
+		transactions = append(transactions, func(tx *gorm.DB) error {
+			sql := fmt.Sprintf("comment on table %s is '%s'", this.FullName(), this.TableComment)
+			return tx.Exec(sql).Error
+		})
+	}
+
+	if this.TableName != this.origin.TableName {
+		transactions = append(transactions, func(tx *gorm.DB) error {
+			sql := fmt.Sprintf("alter table %s rename to %s", this.origin.FullName(), this.TableName)
+			return tx.Exec(sql).Error
+		})
+	}
+
+	if len(transactions) > 0 {
+		defer func() {
+			this.dropColumns = []*Column{}
+		}()
+		return this.mig.tx.Transaction(func(tx *gorm.DB) error {
+			for _, transaction := range transactions {
+				if err := transaction(tx); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	return nil
+}
+
 func (this *Table) clone() *Table {
 	columns := make([]*Column, 0, len(this.TableColumns))
 	{
@@ -296,6 +374,14 @@ func (this *Table) clone() *Table {
 			indexes = append(indexes, index.clone())
 		}
 	}
+
+	dropColumns := make([]*Column, 0)
+	{
+		for _, column := range this.dropColumns {
+			dropColumns = append(dropColumns, column.clone())
+		}
+	}
+
 	table := &Table{
 		TableName:    this.TableName,
 		TableComment: this.TableComment,
@@ -304,6 +390,7 @@ func (this *Table) clone() *Table {
 		mig:          this.mig,
 		origin:       nil,
 		hasDescribe:  this.hasDescribe,
+		dropColumns:  dropColumns,
 	}
 
 	return table

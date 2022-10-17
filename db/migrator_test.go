@@ -239,6 +239,85 @@ func TestMigrator_NewTable(t *testing.T) {
 	}
 }
 
+func TestMigrator_UpdateTable(t *testing.T) {
+	type args struct {
+		tx     *gorm.DB
+		schema []string
+		table  string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: MYSQL,
+			args: args{
+				tx:     mysqlTX,
+				schema: []string{},
+				table:  "ttt",
+			},
+		},
+		{
+			name: POSTGRESQL,
+			args: args{
+				tx:     postgreTx,
+				schema: []string{"repository"},
+				table:  "ttt",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mig := Migrator(tt.args.tx, tt.args.schema...)
+			tables, err := mig.Tables(tt.args.table)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			klog.Args("tables", tables.List()).Debug(tt.name)
+			table := tables.First()
+			if err = table.Describe(); err != nil {
+				t.Error(err)
+				return
+			}
+
+			_, column := table.Columns().Find(func(col migrator.Column) bool {
+				return col.Name() == "password"
+			})
+			column.SetName("password").
+				SetNull(false).
+				SetLength(30).
+				SetDefaultValue("sss")
+
+			name, _ := table.GetColumn("name")
+			name.SetName("username")
+			table.SetComment("修改了注释1")
+
+			//table.AddColumn("id", "int").
+			//    SetPrimaryKey().
+			//    SetAutoIncrement(true)
+
+			//table.DropColumn("name")
+
+			table.AddColumn("name", "varchar").
+				SetNull(false).
+				SetLength(30).
+				SetComment("姓名")
+
+			//table.AddColumn("password", "varchar").
+			//    SetLength(32).
+			//    SetComment("密码")
+
+			//table.AddIndex("name", "password").SetUnique(true)
+
+			if err := table.Save(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
 //
 //func TestGormCreateTable(t *testing.T) {
 //    tpl := `CREATE TABLE %s

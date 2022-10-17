@@ -94,6 +94,16 @@ func (this *Table) Columns() *klist.List[migrator.Column] {
 	return columns
 }
 
+func (this *Table) GetColumn(name string) (migrator.Column, bool) {
+	idx, column := this.Columns().Find(func(col migrator.Column) bool {
+		return col.Name() == name
+	})
+	if idx == -1 {
+		return nil, false
+	}
+	return column, true
+}
+
 func (this *Table) loadIndexes() error {
 	this.TableIndexes = []*Index{}
 
@@ -123,6 +133,7 @@ func (this *Table) loadIndexes() error {
 			IsPK:         pk,
 		}
 
+		_index.generateName()
 		_index.origin = _index.clone()
 
 		this.TableIndexes = append(this.TableIndexes, _index)

@@ -13,6 +13,7 @@ type Index struct {
 	table        *Table   `json:"-"`
 	IsUnique     bool     `json:"unique"`
 	origin       *Index
+	deleted      bool
 }
 
 func (this *Index) Table() migrator.Table {
