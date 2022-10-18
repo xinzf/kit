@@ -37,6 +37,10 @@ func New(cfgFile string) error {
 	return nil
 }
 
+func Set[T any](key string, value T) {
+	cfg.v.Set(key, value)
+}
+
 func Get[T any](key string) (result T) {
 	if val := cfg.v.Get(key); val == nil {
 		return
