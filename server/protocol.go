@@ -52,3 +52,7 @@ func (r Response) GetMessage() string {
 type HandlerName interface {
 	HandlerName() string
 }
+
+type HandlerPath interface {
+	Paths() map[string][]string
+}

@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func newHandler(pkgPath, handlerName, methodName string, fun reflect.Value, aliasName string) (hdl *handler) {
-	if fun.Type().NumIn() > 3 || fun.Type().NumIn() < 2 || fun.Type().NumOut() < 1 || fun.Type().NumOut() > 2 {
+func newHandler(pkgPath, handlerName, methodName string, fun reflect.Value, aliasName string, paths map[string][]string) (hdl *handler) {
+	if fun.Type().NumIn() > 3 || fun.Type().NumIn() < 1 || fun.Type().NumOut() < 1 || fun.Type().NumOut() > 2 {
 		return
 	}
 
@@ -22,37 +22,50 @@ func newHandler(pkgPath, handlerName, methodName string, fun reflect.Value, alia
 		isUpload   bool
 	)
 
-	if fun.Type().NumIn() == 2 {
+	if fun.Type().NumIn() == 1 {
+		c = fun.Type().In(0)
+	} else if fun.Type().NumIn() == 2 {
 		req = fun.Type().In(0)
 		rsp = fun.Type().In(1)
-	} else {
+	} else if fun.Type().NumIn() == 3 {
 		c = fun.Type().In(0)
 		req = fun.Type().In(1)
 		rsp = fun.Type().In(2)
+	} else {
+		return nil
 	}
 
 	if fun.Type().NumOut() == 2 {
 		outputCode = fun.Type().Out(0)
 		outputErr = fun.Type().Out(1)
-	} else {
+	} else if fun.Type().NumOut() == 1 {
 		outputErr = fun.Type().Out(0)
+	} else {
+		return nil
 	}
 
-	if req.Kind() != reflect.Interface && req.Kind() != reflect.Ptr {
-		klog.Warnf("the request argument of %s.%s is not a pointer", handlerName, methodName)
-		return
-	}
-
-	if rsp.Kind() != reflect.Interface && rsp.Kind() != reflect.Map {
-		if rsp.Kind() != reflect.Ptr {
-			klog.Warnf("the response argument of %s.%s is not a pointer", handlerName, methodName)
+	if fun.Type().NumIn() == 1 {
+		if c.String() != "*gin.Context" {
+			klog.Warnf("the context argument of %s.%s is not *gin.Context", handlerName, methodName)
 			return
 		}
-	}
+	} else if fun.Type().NumIn() == 2 {
+		if req.Kind() != reflect.Interface && req.Kind() != reflect.Ptr {
+			klog.Warnf("the request argument of %s.%s is not a pointer", handlerName, methodName)
+			return
+		}
 
-	if fun.Type().NumIn() == 3 && c.String() != "*gin.Context" {
-		klog.Warnf("the context argument of %s.%s is not *gin.Context", handlerName, methodName)
-		return
+		if rsp.Kind() != reflect.Interface && rsp.Kind() != reflect.Map {
+			if rsp.Kind() != reflect.Ptr {
+				klog.Warnf("the response argument of %s.%s is not a pointer", handlerName, methodName)
+				return
+			}
+		}
+	} else if fun.Type().NumIn() == 3 {
+		if c.String() != "*gin.Context" {
+			klog.Warnf("the context argument of %s.%s is not *gin.Context", handlerName, methodName)
+			return
+		}
 	}
 
 	if fun.Type().NumOut() == 2 && outputCode.String() != "int" {
@@ -65,8 +78,10 @@ func newHandler(pkgPath, handlerName, methodName string, fun reflect.Value, alia
 		return
 	}
 
-	if req.String() == "*server.UploadRequest" {
-		isUpload = true
+	if fun.Type().NumIn() > 1 {
+		if req.String() == "*server.UploadRequest" {
+			isUpload = true
+		}
 	}
 
 	hdl = &handler{
@@ -81,6 +96,7 @@ func newHandler(pkgPath, handlerName, methodName string, fun reflect.Value, alia
 		rsp:         rsp,
 		inNum:       fun.Type().NumIn(),
 		outNum:      fun.Type().NumOut(),
+		paths:       paths,
 		outputCode:  outputCode,
 		outputErr:   outputErr,
 		isUpload:    isUpload,
@@ -103,6 +119,7 @@ type handler struct {
 	outNum      int
 	outputCode  reflect.Type
 	outputErr   reflect.Type
+	paths       map[string][]string
 	isUpload    bool
 	cache       struct {
 		key      string
@@ -110,152 +127,161 @@ type handler struct {
 	}
 }
 
-func (this *handler) getBindPath() string {
+func (this *handler) getBindPath(paths map[string][]string) string {
 	var path string
 	if this.aliasName != "" {
 		path = fmt.Sprintf("/%s/%s", snakeString(this.aliasName), snakeString(this.methodName))
 	} else {
 		path = fmt.Sprintf("/%s/%s", snakeString(this.handlerName), snakeString(this.methodName))
 	}
+
+	if paths != nil {
+		params, found := paths[this.methodName]
+		if found {
+			for _, param := range params {
+				path += fmt.Sprintf("/:%s", param)
+			}
+		}
+	}
 	return path
 }
 
 func (this *handler) handlerFunc(c *gin.Context) {
-	var response Response
-	defer func() {
-		if response.Data == nil {
-			response.Data = map[string]interface{}{}
-		}
-	}()
+	if this.inNum == 1 {
+		values := this.fun.Call([]reflect.Value{
+			reflect.ValueOf(c),
+		})
 
-	var req reflect.Value
-	if this.req.Kind() == reflect.Interface {
-		req = reflect.New(this.req)
-	} else {
-		req = reflect.New(this.req.Elem())
-	}
-
-	var uploadFile *UploadRequest
-	if this.isUpload == false {
-		contentType := c.ContentType()
-		if contentType == "text/xml" {
-			if err := c.BindXML(req.Interface()); err != nil {
-				response.Status = 400
-				response.Msg = err.Error()
-				c.AbortWithStatusJSON(200, response)
-				return
-			}
-		} else if contentType == "application/json" {
-			if err := c.BindJSON(req.Interface()); err != nil {
-				response.Status = 400
-				response.Msg = err.Error()
-				c.AbortWithStatusJSON(200, response)
-				return
-			}
-		}
-	} else {
-		uploadFile = &UploadRequest{ctx: c}
-	}
-
-	//this.requestVerify(req, c)
-	this.afterRequest(req, c)
-	if c.IsAborted() {
-		return
-	}
-
-	//this.requestCache(req, c)
-	//if c.IsAborted() {
-	//	return
-	//}
-
-	var rsp reflect.Value
-	if this.rsp.String() == "interface {}" {
-		rsp = reflect.ValueOf(map[string]any{})
-	} else {
-		rsp = reflect.New(this.rsp.Elem())
-	}
-
-	values := make([]reflect.Value, 0)
-	if this.inNum == 2 {
-		if this.isUpload {
-			values = this.fun.Call([]reflect.Value{
-				reflect.ValueOf(uploadFile),
-				rsp,
-			})
+		var (
+			code int = 0
+			err  error
+		)
+		if this.outNum == 2 {
+			code, _ = values[0].Interface().(int)
+			err, _ = values[1].Interface().(error)
 		} else {
-			values = this.fun.Call([]reflect.Value{
-				req, rsp,
-			})
+			err, _ = values[0].Interface().(error)
+		}
+
+		if err != nil && code == 0 {
+			code = 500
+		}
+
+		if code != 0 || err != nil {
+			if err == nil {
+				err = fmt.Errorf("Error with: %d\n", code)
+			}
+			_ = c.AbortWithError(200, err)
+			return
 		}
 	} else {
-		if this.isUpload {
-			values = this.fun.Call([]reflect.Value{
-				reflect.ValueOf(c),
-				reflect.ValueOf(uploadFile),
-				rsp,
-			})
+		var response Response
+		defer func() {
+			if response.Data == nil {
+				response.Data = map[string]interface{}{}
+			}
+		}()
+
+		var req reflect.Value
+		if this.req.Kind() == reflect.Interface {
+			req = reflect.New(this.req)
 		} else {
-			values = this.fun.Call([]reflect.Value{
-				reflect.ValueOf(c),
-				req, rsp,
-			})
+			req = reflect.New(this.req.Elem())
 		}
+
+		var uploadFile *UploadRequest
+		if this.isUpload == false {
+			contentType := c.ContentType()
+			if contentType == "text/xml" {
+				if err := c.BindXML(req.Interface()); err != nil {
+					response.Status = 400
+					response.Msg = err.Error()
+					c.AbortWithStatusJSON(200, response)
+					return
+				}
+			} else if contentType == "application/json" {
+				if err := c.BindJSON(req.Interface()); err != nil {
+					response.Status = 400
+					response.Msg = err.Error()
+					c.AbortWithStatusJSON(200, response)
+					return
+				}
+			}
+		} else {
+			uploadFile = &UploadRequest{ctx: c}
+		}
+
+		this.afterRequest(req, c)
+		if c.IsAborted() {
+			return
+		}
+
+		var rsp reflect.Value
+		if this.rsp.String() == "interface {}" {
+			rsp = reflect.ValueOf(map[string]any{})
+		} else {
+			rsp = reflect.New(this.rsp.Elem())
+		}
+
+		values := make([]reflect.Value, 0)
+		if this.inNum == 2 {
+			if this.isUpload {
+				values = this.fun.Call([]reflect.Value{
+					reflect.ValueOf(uploadFile),
+					rsp,
+				})
+			} else {
+				values = this.fun.Call([]reflect.Value{
+					req, rsp,
+				})
+			}
+		} else {
+			if this.isUpload {
+				values = this.fun.Call([]reflect.Value{
+					reflect.ValueOf(c),
+					reflect.ValueOf(uploadFile),
+					rsp,
+				})
+			} else {
+				values = this.fun.Call([]reflect.Value{
+					reflect.ValueOf(c),
+					req, rsp,
+				})
+			}
+		}
+
+		var (
+			code int = 0
+			err  error
+		)
+		if this.outNum == 2 {
+			code, _ = values[0].Interface().(int)
+			err, _ = values[1].Interface().(error)
+		} else {
+			err, _ = values[0].Interface().(error)
+		}
+
+		if err != nil && code == 0 {
+			code = 500
+		}
+
+		if code != 0 || err != nil {
+			response.Status = code
+			response.Msg = err.Error()
+			c.AbortWithStatusJSON(200, response)
+			return
+		}
+
+		response.Data = rsp.Interface()
+		output := Response{
+			Status: 0,
+			Msg:    "",
+			Data:   response.Data,
+		}
+
+		c.JSON(200, output)
+		this.afterResponse(req, c, output)
 	}
-
-	var (
-		code int = 0
-		err  error
-	)
-	if this.outNum == 2 {
-		code, _ = values[0].Interface().(int)
-		err, _ = values[1].Interface().(error)
-	} else {
-		err, _ = values[0].Interface().(error)
-	}
-
-	if err != nil && code == 0 {
-		code = 500
-	}
-
-	if code != 0 || err != nil {
-		response.Status = code
-		response.Msg = err.Error()
-		c.AbortWithStatusJSON(200, response)
-		return
-	}
-
-	response.Data = rsp.Interface()
-	output := Response{
-		Status: 0,
-		Msg:    "",
-		Data:   response.Data,
-	}
-
-	c.JSON(200, output)
-	this.afterResponse(req, c, output)
-	//
-	//if this.cache.key != "" && response.Data != nil {
-	//	ref := reflect.ValueOf(response.Data)
-	//	switch ref.Kind() {
-	//	case reflect.Array, reflect.Map, reflect.Slice, reflect.Pointer, reflect.Struct:
-	//		bts, err := jsoniter.Marshal(response.Data)
-	//		if err == nil {
-	//			err = cache.Redis().Set(context.TODO(), this.cache.key, bts, this.cache.duration).Err()
-	//		}
-	//	default:
-	//		err = cache.Redis().Set(context.TODO(), this.cache.key, response.Data, this.cache.duration).Err()
-	//	}
-	//	if err != nil {
-	//		klog.Errof("put request cache failed: %s", err.Error())
-	//	} else {
-	//		klog.Debugf("save request cache: %s success", this.cache.key)
-	//	}
-	//}
-	//
-	//if err = this.deleteCache(req); err != nil {
-	//	klog.Errof("delete request cache failed: %s", err.Error())
-	//}
-
 	return
 }
 

@@ -32,7 +32,7 @@ func init() {
 		Host:        "127.0.0.1:5432",
 		User:        "postgres",
 		Pswd:        "111111",
-		Name:        "bi",
+		Name:        "saas.xunray.com",
 		Driver:      POSTGRESQL,
 		MaxIdleCons: 10,
 		MaxOpenCons: 10,
@@ -66,7 +66,7 @@ func TestMigrator_Tables(t *testing.T) {
 			args: args{
 				tx:     postgreTx,
 				schema: []string{"repository"},
-				tables: []string{"category"},
+				tables: []string{},
 			},
 		},
 	}
@@ -107,7 +107,7 @@ func TestMigrator_Table_Columns(t *testing.T) {
 			args: args{
 				tx:     postgreTx,
 				schema: []string{"repository"},
-				table:  "category",
+				table:  "pdm",
 			},
 		},
 	}
@@ -157,7 +157,7 @@ func TestMigrator_Table_Indexes(t *testing.T) {
 			args: args{
 				tx:     postgreTx,
 				schema: []string{"repository"},
-				table:  "category",
+				table:  "pdm",
 			},
 		},
 	}

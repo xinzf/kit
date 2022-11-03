@@ -61,6 +61,13 @@ func (this *HandlerGroup) Register(apiHandler ...interface{}) *HandlerGroup {
 			alisName = alisValue[0].Interface().(string)
 		}
 
+		var paths map[string][]string = nil
+		if refType.Implements(reflect.TypeOf(new(HandlerPath)).Elem()) {
+			pathMethod := refValue.MethodByName("Paths")
+			pathValue := pathMethod.Call([]reflect.Value{})
+			paths = pathValue[0].Interface().(map[string][]string)
+		}
+
 		for i := 0; i < refValue.NumMethod(); i++ {
 			methodName := refType.Method(i).Name
 
@@ -70,7 +77,7 @@ func (this *HandlerGroup) Register(apiHandler ...interface{}) *HandlerGroup {
 				}
 			}
 
-			hdl := newHandler(refType.Elem().PkgPath(), handlerName, methodName, refValue.Method(i), alisName)
+			hdl := newHandler(refType.Elem().PkgPath(), handlerName, methodName, refValue.Method(i), alisName, paths)
 			if hdl == nil {
 				continue
 			}

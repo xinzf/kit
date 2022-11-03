@@ -1,6 +1,8 @@
 package utils
 
-import "reflect"
+import (
+	"reflect"
+)
 
 func Clone(src interface{}) interface{} {
 	var val interface{}
@@ -22,3 +24,9 @@ func Clone(src interface{}) interface{} {
 	}
 	return val
 }
+
+//
+//func MD5() string {
+//    srcCode := md5.Sum([]byte(s))
+//    return fmt.Sprintf("%x", srcCode)
+//}

@@ -205,9 +205,13 @@ func (this *Table) DropColumn(columnName ...string) migrator.Table {
 	columns := []*Column{}
 	for _, name := range columnName {
 		for _, column := range this.TableColumns {
-			if column.ColumnName == name {
+			if column.ColumnName != name {
+				columns = append(columns, column)
+				continue
+			}
+
+			if column.origin != nil {
 				column.deleted = true
-			} else {
 				columns = append(columns, column)
 			}
 		}
@@ -264,9 +268,14 @@ func (this *Table) create() error {
 		}
 
 		pkColumns := make([]string, 0)
-		for _, index := range this.TableIndexes {
-			if index.IsPK {
-				pkColumns = append(pkColumns, index.IndexColumns...)
+		//for _, index := range this.TableIndexes {
+		//	if index.IsPK {
+		//		pkColumns = append(pkColumns, index.IndexColumns...)
+		//	}
+		//}
+		for _, column := range this.TableColumns {
+			if column.IsPrimaryKey {
+				pkColumns = append(pkColumns, column.Name())
 			}
 		}
 		if len(pkColumns) > 0 {
@@ -285,12 +294,15 @@ func (this *Table) create() error {
 		})
 	}
 
+	addComment := func(col *Column) {
+		transactions = append(transactions, func(tx *gorm.DB) error {
+			sql := fmt.Sprintf("comment on column %s.%s is '%s'", this.FullName(), col.ColumnName, col.ColumnComment)
+			return tx.Exec(sql).Error
+		})
+	}
 	for _, column := range this.TableColumns {
 		if column.ColumnComment != "" {
-			transactions = append(transactions, func(tx *gorm.DB) error {
-				sql := fmt.Sprintf("comment on column %s.%s is '%s'", this.FullName(), column.ColumnName, column.ColumnComment)
-				return tx.Exec(sql).Error
-			})
+			addComment(column)
 		}
 	}
 
@@ -318,11 +330,11 @@ func (this *Table) update() error {
 		}
 	}
 
-	for _, column := range this.dropColumns {
-		for _, query := range column.alterSqls() {
-			transactions = append(transactions, generateTransaction(query))
-		}
-	}
+	//for _, column := range this.dropColumns {
+	//	for _, query := range column.alterSqls() {
+	//		transactions = append(transactions, generateTransaction(query))
+	//	}
+	//}
 
 	for _, column := range this.TableColumns {
 		for _, query := range column.alterSqls() {

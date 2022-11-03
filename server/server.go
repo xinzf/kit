@@ -58,9 +58,9 @@ func Run(ctx context.Context, before ...func() error) {
 				_group.path = "/"
 			}
 			if _group.path == "/" {
-				path = strings.TrimLeft(h.getBindPath(), "/")
+				path = strings.TrimLeft(h.getBindPath(h.paths), "/")
 			} else {
-				path = h.getBindPath()
+				path = h.getBindPath(h.paths)
 			}
 
 			evalPath := func() string {
@@ -82,6 +82,7 @@ func Run(ctx context.Context, before ...func() error) {
 			ginGroup.OPTIONS(path, func(c *gin.Context) {
 				c.JSON(200, nil)
 			})
+			ginGroup.GET(path, h.handlerFunc)
 			ginGroup.POST(path, h.handlerFunc)
 		}
 		for _, subGroup := range _group.subGroups {
