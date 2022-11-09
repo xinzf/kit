@@ -15,10 +15,9 @@ require (
 	github.com/r3labs/diff/v3 v3.0.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rpcxio/rpcx-etcd v0.2.0
-	github.com/rpcxio/rpcx-examples v1.1.6
 	github.com/smallnest/rpcx v1.7.11
 	github.com/spf13/cast v1.5.0
-	github.com/spf13/viper v1.13.0
+	github.com/spf13/viper v1.7.1
 	go.uber.org/zap v1.23.0
 	golang.org/x/exp v0.0.0-20221018221608-02f3b879a704
 	gorm.io/driver/mysql v1.4.1
@@ -135,5 +134,4 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

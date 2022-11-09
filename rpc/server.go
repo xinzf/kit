@@ -32,7 +32,7 @@ func Register(handlers ...interface{}) {
 func Run(ctx context.Context, before ...func(serv *server.Server) error) {
 	serviceName := kcfg.Get[string]("rpc.name")
 	if serviceName == "" {
-		klog.Fatal("Missing rpc service's port")
+		klog.Fatal("Missing rpc service's name")
 	}
 
 	port := kcfg.Get[int]("rpc.port")
