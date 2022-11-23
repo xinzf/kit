@@ -308,6 +308,12 @@ func (this *List[T]) Last() T {
 	return elem
 }
 
+func (this *List[T]) Pop() T {
+	elem := this.First()
+	this.Remove(0)
+	return elem
+}
+
 func (this *List[T]) Set(index int, value T) {
 	if index < 0 {
 		this.list.Add(value)

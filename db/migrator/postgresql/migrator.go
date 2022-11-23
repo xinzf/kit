@@ -61,7 +61,14 @@ func (this *_migrator) Tables(name ...string) (*klist.List[migrator.Table], erro
 		return nil, err
 	}
 
+	unique := map[string]bool{}
 	for _, row := range tableRows {
+		fullName := fmt.Sprintf("%s.%s", row.Schemaname, row.Tablename)
+		if _, ok := unique[fullName]; ok {
+			continue
+		}
+
+		unique[fullName] = true
 		_table := &Table{
 			TableName:    row.Tablename,
 			TableComment: row.Comment,

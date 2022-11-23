@@ -814,8 +814,8 @@ func (this *Var) Convert(target interface{}) error {
 		return nil
 	}
 	kind := reflect.ValueOf(target).Kind()
-	if kind != reflect.Ptr && kind != reflect.Map {
-		return errors.New("Element.Bind must required a pointer or map argument")
+	if kind != reflect.Ptr {
+		return errors.New("Element.Bind must required a pointer argument")
 	}
 
 	switch this.kind {

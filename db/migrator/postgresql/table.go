@@ -69,7 +69,12 @@ func (this *Table) loadColumns() error {
 			ColumnDataType:     col.DatabaseTypeName(),
 			IsPrimaryKey:       pk,
 			IsAutoIncrement:    auto,
-			ColumnLength:       int(length),
+			ColumnLength: func() int {
+				if tpe != "text" && tpe != "json" && tpe != "jsonb" {
+					return int(length)
+				}
+				return 0
+			}(),
 			IsNullAble:         nullAble,
 			ColumnDefaultValue: dft,
 			ColumnComment:      com,

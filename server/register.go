@@ -33,6 +33,7 @@ func (this *HandlerGroup) getPath() string {
 func (this *HandlerGroup) Group(path string, middlewares ...gin.HandlerFunc) *HandlerGroup {
 	for _, subGroup := range this.subGroups {
 		if subGroup.path == path {
+			subGroup.middlewares = append(subGroup.middlewares, middlewares...)
 			return subGroup
 		}
 	}
